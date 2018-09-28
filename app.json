@@ -1,0 +1,11 @@
+{
+  "name": "PushResume",
+  "repository": "https://github.com/pushresume/backend",
+  "scripts": {
+    "postdeploy": "from app import db, create_app; app=create_app(); app.app_context().push(); db.create_all()'"
+  },
+  "addons": [
+    "heroku-postgresql:hobby-dev",
+    "heroku-redis:hobby-dev"
+  ]
+}
