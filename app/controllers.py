@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 from flask import current_app
 
-from . import db
+from . import db, __version__
 from .models import User, Resume
 
 
@@ -73,19 +73,21 @@ class StatsController(object):
         redis = current_app.redis.info('memory')
 
         result = {
-            'db': {
-                'rows': {'total': users + resume, 'max': 10000},
-                'memory': {'total': redis['used_memory'], 'max': 25000000}
+            'providers': [],
+            'health': {
+                'db': {'current': users + resume, 'max': 10000},
+                'cache': {'current': redis['used_memory'], 'max': 25000000}
             },
-            'users': {'items': [], 'total': users},
-            'resume': {'items': [], 'total': resume}
+            'version': __version__
         }
 
         ResumeUser = Resume.query.join(User)
         for prov in current_app.providers.keys():
-            result['users']['items'].append(
-                {prov: User.query.filter_by(provider=prov).count()})
-            result['resume']['items'].append(
-                {prov: ResumeUser.filter(User.provider == prov).count()})
+            provider = {
+                'name': prov,
+                'users': User.query.filter_by(provider=prov).count(),
+                'resume': ResumeUser.filter(User.provider == prov).count()
+            }
+            result['providers'].append(provider)
 
         return result
