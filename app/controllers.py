@@ -1,9 +1,10 @@
+from random import randint
 from datetime import datetime, timedelta
 
 from flask import current_app
 
 from . import db, __version__
-from .models import User, Resume
+from .models import User, Resume, OTP
 
 
 class UserController(object):
@@ -91,3 +92,41 @@ class StatsController(object):
             result['providers'].append(provider)
 
         return result
+
+
+class OTPController(object):
+    """OTP Controller"""
+
+    @classmethod
+    def create(self, user_id):
+        user = User.query.get(user_id)
+
+        if user.is_has_otp:
+            if not user.otp.is_expired:
+                return user.otp
+
+            db.session.delete(user.otp)
+            db.session.commit()
+
+        code = self.generate(length=current_app.config['OTP_LENGTH'])
+        ttl = timedelta(seconds=current_app.config['OTP_TTL'])
+        timestamp = datetime.utcnow() + ttl
+
+        otp = OTP(code=code, expires=timestamp, owner=user)
+        db.session.add(otp)
+        db.session.commit()
+
+        return otp
+
+    @classmethod
+    def validate(self, code):
+        otp = OTP.query.filter_by(code=code).first()
+
+        if otp and not otp.is_expired:
+            return otp.owner
+
+        return False
+
+    @staticmethod
+    def generate(length=8):
+        return randint(10**(length-1), (10**length)-1)
