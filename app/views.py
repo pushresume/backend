@@ -1,3 +1,4 @@
+from uuid import uuid4
 from functools import wraps
 
 from flask import Blueprint, current_app, abort, request, jsonify
@@ -6,13 +7,17 @@ from flask_jwt_extended import (
 from cerberus import Validator
 from sqlalchemy.exc import SQLAlchemyError
 from redis import RedisError
+from telebot import types
 
-from . import cache
+from . import cache, bot
 from .providers import ProviderError
-from .controllers import UserController, ResumeController, StatsController
+from .controllers import (
+    UserController, ResumeController, StatsController, OTPController)
 
 
 module = Blueprint('pushresume', __name__)
+
+telegram_secret = uuid4()
 
 
 def validation_required(schema):
@@ -28,11 +33,6 @@ def validation_required(schema):
     return wrapper
 
 
-def make_back_url(provider):
-    origin = request.environ.get('HTTP_ORIGIN', None)
-    return f'{origin}/auth/{provider}'
-
-
 @module.before_app_first_request
 def cache_clean():
     try:
@@ -40,7 +40,21 @@ def cache_clean():
     except Exception as e:
         current_app.logger.warning(f'Cache clean failed: {e}')
     else:
-        current_app.logger.info(f'Cache clean successfully')
+        current_app.logger.info('Cache clean successfully')
+
+
+@module.before_app_first_request
+def telegram_webhook():
+    url = current_app.config['BACKEND_URL']
+    current_app.logger.info(f'Telegram secret: {telegram_secret}')
+    try:
+        bot.remove_webhook()
+        if not current_app.debug:
+            bot.set_webhook(url=f'{url}/notif/tg/{telegram_secret}')
+    except Exception as e:
+        current_app.logger.warning(f'Telegram webhook create failed: {e}')
+    else:
+        current_app.logger.info('Telegram webhook successfully created')
 
 
 @module.before_request
@@ -346,3 +360,70 @@ def stats():
 
     else:
         return jsonify(stats)
+
+
+@module.route('/notif/otp', methods=['GET'])
+@jwt_required
+def otp():
+    """
+    Returns OTP code
+
+    .. :quickref: notif; Generate OTP code
+
+    **Request**:
+
+        .. sourcecode:: http
+
+            GET /notif/otp HTTP/1.1
+            Authorization: JWT q1w2.e3r4.t5y
+
+    **Response**:
+
+        .. sourcecode:: http
+
+            HTTP/1.1 200 OK
+            Content-Type: application/json
+
+            {
+                "code": "12345678"
+            }
+
+    :reqheader Authorization: valid JWT token
+
+    :statuscode 200: OK
+    :statuscode 401: auth errors
+    :statuscode 500: unexpected errors
+    """
+    user_id = get_jwt_identity()
+
+    otp_controller = OTPController()
+    otp = otp_controller.create(user_id)
+
+    return jsonify(code=otp.code)
+
+
+@module.route(f'/notif/tg/{telegram_secret}', methods=['POST'])
+def webhook():
+    post_data = request.get_json()
+
+    update = types.Update.de_json(post_data)
+    bot.process_new_updates([update])
+
+    return '', 200
+
+
+@bot.message_handler(commands=['start'])
+def command_start(msg):
+    bot.send_message(msg.chat.id, 'Please, enter the OTP code')
+
+
+@bot.message_handler(regexp='^[0-9]{8}$')
+def validate_otp(msg):
+    bot.send_message(msg.chat.id, 'Code success')
+
+
+@bot.message_handler(func=lambda msg: True)
+def invalid_message(msg):
+    return_text = 'Invalid message'
+    current_app.logger.debug(f'{return_text}: {msg.text}')
+    bot.send_message(msg.chat.id, return_text)

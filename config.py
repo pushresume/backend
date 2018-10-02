@@ -9,6 +9,7 @@ DEBUG = True if os.getenv('DEBUG') == 'True' else False
 # REQUIRED APP SETTINGS
 
 FRONTEND_URL = os.getenv('FRONTEND_URL')
+BACKEND_URL = os.getenv('BACKEND_URL')
 
 PROVIDERS = ['headhunter', 'superjob']
 
@@ -29,6 +30,11 @@ CACHE_TYPE = 'redis'
 CACHE_KEY_PREFIX = 'cache'
 CACHE_DEFAULT_TIMEOUT = 300
 CACHE_REDIS_URL = os.getenv('REDIS_URL', 'redis://')
+
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
+
+OTP_LENGTH = 8
+OTP_TTL = 60  # sec
 
 # PROVIDERS SETTINGS
 

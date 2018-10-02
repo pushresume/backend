@@ -11,3 +11,4 @@ redis == 2.10.6
 celery == 4.2.1
 celery-redbeat == 0.11.1
 gunicorn == 19.9.0
+pytelegrambotapi == 3.6.6

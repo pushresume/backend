@@ -4,6 +4,7 @@ from importlib import import_module
 
 from redis import Redis
 from celery import Celery
+from telebot import TeleBot
 from flask import Flask, jsonify, abort
 from flask_cors import CORS
 from flask_caching import Cache
@@ -25,6 +26,9 @@ def create_app():
 
     app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(  # must be timedelta,
         minutes=int(app.config['JWT_ACCESS_TOKEN_EXPIRES']))  # must be here
+
+    global bot  # sic!
+    bot = TeleBot(app.config['TELEGRAM_TOKEN'], threaded=False)
 
     external_logger = getLogger('gunicorn.error')
     if len(external_logger.handlers) > 0:
