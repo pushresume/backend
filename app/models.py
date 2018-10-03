@@ -49,12 +49,13 @@ class Resume(db.Model):
 class OTP(db.Model):
 
     __tablename__ = 'otp'
+    __table_args__ = (db.Index('uniq_otp', 'channel', 'user_id', unique=True),)
 
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(24), unique=True, nullable=False)
     expires = db.Column(db.DateTime, nullable=False)
-    user_id = db.Column(
-        db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False)
+    channel = db.Column(db.String(120), unique=False, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
     @property
     def is_expired(self):
@@ -67,12 +68,34 @@ class OTP(db.Model):
 class Subscription(db.Model):
 
     __tablename__ = 'subscriptions'
+    __table_args__ = (db.Index('uniq_sub', 'channel', 'user_id', unique=True),)
 
     id = db.Column(db.Integer, primary_key=True)
-    address = db.Column(db.String(120), unique=True, nullable=False)
+    address = db.Column(db.String(120), unique=False, nullable=False)
     channel = db.Column(db.String(120), unique=False, nullable=False)
     enabled = db.Column(db.Boolean, default=False, nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
     def __str__(self):
-        return f'{self.address}, channel={self.channel}, user={self.owner}'
+        return '{0}, channel={1}, enabled={2}, user={3}'.format(
+            self.address, self.channel, self.enabled, self.owner)
+
+
+class Notification(db.Model):
+
+    __tablename__ = 'notifications'
+
+    id = db.Column(db.Integer, primary_key=True)
+    message = db.Column(db.Text, unique=False, nullable=False)
+    channel = db.Column(db.String(120), unique=False, nullable=False)
+    expires = db.Column(db.DateTime, nullable=False)
+    sended = db.Column(db.Boolean, default=False, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    @property
+    def is_expired(self):
+        return datetime.utcnow() > self.expires
+
+    def __str__(self):
+        return '{0}, channel={1}, sended={2}, expires={3}, user={4}'.format(
+            self.message, self.channel, self.sended, self.expires, self.owner)
