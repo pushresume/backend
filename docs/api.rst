@@ -10,13 +10,11 @@ Routes
     :undoc-static:
     :order: path
     :groupby: view
-    :include-empty-docstring:
 
 Methods
 =======
 
 .. autoflask:: app:create_app()
-	:undoc-static:
-	:order: path
-	:groupby: view
-	:include-empty-docstring:
+    :undoc-static:
+    :order: path
+    :groupby: view
