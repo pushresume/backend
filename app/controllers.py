@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from flask import current_app
 
 from . import db, __version__
-from .models import User, Resume, OTP
+from .models import User, Resume, OTP, Subscription, Notification
 
 
 class UserController(object):
@@ -34,8 +34,8 @@ class UserController(object):
 class ResumeController(object):
     """Resume Controller"""
 
-    @classmethod
-    def fetch(self, user_id):
+    @staticmethod
+    def fetch(user_id):
         user = User.query.get(user_id)
         provider = current_app.providers[user.provider]
         resumes = provider.fetch(user.access)
@@ -52,8 +52,8 @@ class ResumeController(object):
         db.session.commit()
         return resumes
 
-    @classmethod
-    def toggle(self, user_id, uniq):
+    @staticmethod
+    def toggle(user_id, uniq):
         user = User.query.get(user_id)
         resume = Resume.query.filter_by(uniq=uniq, owner=user).first()
         if resume:
@@ -67,16 +67,21 @@ class ResumeController(object):
 class StatsController(object):
     """Statistics Controller"""
 
-    @classmethod
-    def stats(self):
+    @staticmethod
+    def stats():
         users = User.query.count()
         resume = Resume.query.count()
+        otp = OTP.query.count()
+        subscriptions = Subscription.query.count()
+        notifications = Notification.query.count()
         redis = current_app.redis.info('memory')
+
+        rows = users + resume + otp + subscriptions + notifications
 
         result = {
             'providers': [],
             'health': {
-                'db': {'current': users + resume, 'max': 10000},
+                'db': {'current': rows, 'max': 10000},
                 'cache': {'current': redis['used_memory'], 'max': 25000000}
             },
             'version': __version__
@@ -98,7 +103,7 @@ class OTPController(object):
     """OTP Controller"""
 
     @classmethod
-    def create(self, user_id):
+    def create(cls, user_id, channel):
         user = User.query.get(user_id)
 
         if user.is_has_otp:
@@ -108,25 +113,77 @@ class OTPController(object):
             db.session.delete(user.otp)
             db.session.commit()
 
-        code = self.generate(length=current_app.config['OTP_LENGTH'])
+        code = cls.generate(length=current_app.config['OTP_LENGTH'])
         ttl = timedelta(seconds=current_app.config['OTP_TTL'])
         timestamp = datetime.utcnow() + ttl
 
-        otp = OTP(code=code, expires=timestamp, owner=user)
+        otp = OTP(code=code, expires=timestamp, channel=channel, owner=user)
         db.session.add(otp)
         db.session.commit()
 
         return otp
 
-    @classmethod
-    def validate(self, code):
+    @staticmethod
+    def validate(code, channel):
         otp = OTP.query.filter_by(code=code).first()
 
-        if otp and not otp.is_expired:
-            return otp.owner
+        if not otp:
+            current_app.logger.info(f'OTP code not found: {code}')
+            return False
 
-        return False
+        if otp.is_expired:
+            current_app.logger.info(f'OTP code is expired: {otp}')
+            return False
+
+        user = otp.owner
+        sub = Subscription.query.filter_by(channel=channel, owner=user).first()
+        if sub:
+            current_app.logger.warning(f'Subscription already exists: {sub}')
+            return False
+
+        return otp.owner.id
 
     @staticmethod
     def generate(length=8):
         return randint(10**(length-1), (10**length)-1)
+
+
+class SubscriptionController(object):
+    """Subscription Controller"""
+
+    @staticmethod
+    def create(user_id, address, channel):
+        user = User.query.get(user_id)
+
+        sub = Subscription(address=address, channel=channel, owner=user)
+
+        db.session.add(sub)
+        db.session.commit()
+
+        current_app.logger.info(f'Subscription created: {sub}')
+
+        return sub
+
+    @staticmethod
+    def fetch(user_id, channel=None):
+        user = User.query.get(user_id)
+
+        query = Subscription.query.filter_by(owner=user)
+        if channel:
+            query = query.filter_by(channel=channel)
+
+        sub = query.all()
+
+        return [dict(channel=s.channel, enabled=s.enabled) for s in sub]
+
+    @staticmethod
+    def toggle(user_id, channel):
+        user = User.query.get(user_id)
+
+        sub = Subscription.query.filter_by(owner=user, channel=channel).first()
+        if sub:
+            sub.enabled = not sub.enabled
+            db.session.add(sub)
+            db.session.commit()
+
+        return sub
