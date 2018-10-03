@@ -12,7 +12,8 @@ from telebot import types
 from . import cache, bot
 from .providers import ProviderError
 from .controllers import (
-    UserController, ResumeController, StatsController, OTPController)
+    UserController, ResumeController, StatsController,
+    OTPController, SubscriptionController)
 
 
 module = Blueprint('pushresume', __name__)
@@ -298,6 +299,7 @@ def toggle():
         .. sourcecode:: http
 
             POST /resume HTTP/1.1
+            Authorization: JWT q1w2.e3r4.t5y
             Content-Type: application/json
 
             {
@@ -362,20 +364,27 @@ def stats():
         return jsonify(stats)
 
 
-@module.route('/notif/otp', methods=['GET'])
+@module.route('/notif/otp', methods=['POST'])
 @jwt_required
+@validation_required({
+    'channel': {'type': 'string', 'required': True, 'allowed': ['telegram']}})
 def otp():
     """
     Returns OTP code
 
-    .. :quickref: notif; Generate OTP code
+    .. :quickref: notif; Generate OTP code for channel
 
     **Request**:
 
         .. sourcecode:: http
 
-            GET /notif/otp HTTP/1.1
+            POST /notif/otp HTTP/1.1
             Authorization: JWT q1w2.e3r4.t5y
+            Content-Type: application/json
+
+            {
+                "channel": "<channel_type>"
+            }
 
     **Response**:
 
@@ -396,20 +405,71 @@ def otp():
     """
     user_id = get_jwt_identity()
 
+    post_data = request.get_json()
+    channel = post_data['channel']
+
     otp_controller = OTPController()
-    otp = otp_controller.create(user_id)
+    otp = otp_controller.create(user_id, channel)
 
     return jsonify(code=otp.code)
 
 
+@module.route('/notif/subscriptions', methods=['GET'])
+@jwt_required
+def subscriptions():
+    """
+    Returns list of user subscriptions
+
+    .. :quickref: notif; Generate OTP code
+
+    **Request**:
+
+        .. sourcecode:: http
+
+            GET /notif/subscriptions HTTP/1.1
+            Authorization: JWT q1w2.e3r4.t5y
+
+    **Response**:
+
+        .. sourcecode:: http
+
+            HTTP/1.1 200 OK
+            Content-Type: application/json
+
+            [
+                {
+                    "channel": "<channel_type_1>",
+                    "enabled": true
+                },
+                {
+                    "channel": "<channel_type_2>",
+                    "enabled": false
+                }
+            ]
+
+    :reqheader Authorization: valid JWT token
+
+    :statuscode 200: OK
+    :statuscode 401: auth errors
+    :statuscode 500: unexpected errors
+    """
+    user_id = get_jwt_identity()
+    sub_controller = SubscriptionController()
+    subscriptions = sub_controller.fetch(user_id)
+
+    return jsonify(subscriptions)
+
+
 @module.route(f'/notif/tg/{telegram_secret}', methods=['POST'])
 def webhook():
-    post_data = request.get_json()
-
-    update = types.Update.de_json(post_data)
-    bot.process_new_updates([update])
-
-    return '', 200
+    try:
+        post_data = request.get_json()
+        update = types.Update.de_json(post_data)
+        bot.process_new_updates([update])
+    except Exception as e:
+        current_app.logger.error(f'Read telegram updates failed: {e}')
+    finally:
+        return '', 200
 
 
 @bot.message_handler(commands=['start'])
@@ -419,7 +479,22 @@ def command_start(msg):
 
 @bot.message_handler(regexp='^[0-9]{8}$')
 def validate_otp(msg):
-    bot.send_message(msg.chat.id, 'Code success')
+    otp_controller = OTPController()
+    user_id = otp_controller.validate(msg.text, 'telegram')
+
+    if not user_id:
+        bot.send_message(msg.chat.id, 'Invalid OTP code')
+        return
+
+    sub_controller = SubscriptionController()
+    sub = sub_controller.create(user_id, msg.chat.id, 'telegram')
+
+    if sub:
+        bot.send_message(
+            msg.chat.id, 'Success. You may enable notifications on site')
+        return
+
+    bot.send_message(msg.chat.id, 'Something wrong, subscription not created')
 
 
 @bot.message_handler(func=lambda msg: True)
