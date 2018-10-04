@@ -288,7 +288,7 @@ def resume():
 @module.route('/resume', methods=['POST'])
 @jwt_required
 @validation_required({'uniq': {'type': 'string', 'required': True}})
-def toggle():
+def resume_toggle():
     """
     Enable/disable automatically publish user's resume
 
@@ -316,6 +316,8 @@ def toggle():
             {
                 "enabled": true
             }
+
+    :reqheader Authorization: valid JWT token
 
     :reqjson string uniq: provider's resume id
 
@@ -399,6 +401,8 @@ def otp():
 
     :reqheader Authorization: valid JWT token
 
+    :reqjson string channel: notifications channel
+
     :statuscode 200: OK
     :statuscode 401: auth errors
     :statuscode 500: unexpected errors
@@ -408,8 +412,7 @@ def otp():
     post_data = request.get_json()
     channel = post_data['channel']
 
-    otp_controller = OTPController()
-    otp = otp_controller.create(user_id, channel)
+    otp = OTPController.create(user_id, channel)
 
     return jsonify(code=otp.code)
 
@@ -420,7 +423,7 @@ def subscriptions():
     """
     Returns list of user subscriptions
 
-    .. :quickref: notif; Generate OTP code
+    .. :quickref: notif; List of user subscriptions
 
     **Request**:
 
@@ -454,10 +457,68 @@ def subscriptions():
     :statuscode 500: unexpected errors
     """
     user_id = get_jwt_identity()
-    sub_controller = SubscriptionController()
-    subscriptions = sub_controller.fetch(user_id)
+    raw = SubscriptionController.fetch_all(user_id)
+    subscriptions = [dict(channel=s.channel, enabled=s.enabled) for s in raw]
 
     return jsonify(subscriptions)
+
+
+@module.route('/notif/subscriptions', methods=['POST'])
+@jwt_required
+@validation_required({
+    'channel': {'type': 'string', 'required': True, 'allowed': ['telegram']}})
+def subscriptions_toggle():
+    """
+    Enable/disable notifications for subscription
+
+    .. :quickref: protected; Toggle notifications for subscription
+
+    **Request**:
+
+        .. sourcecode:: http
+
+            POST /notif/subscriptions HTTP/1.1
+            Authorization: JWT q1w2.e3r4.t5y
+            Content-Type: application/json
+
+            {
+                "channel": "<channel_type>"
+            }
+
+    **Response**:
+
+        .. sourcecode:: http
+
+            HTTP/1.1 200 OK
+            Content-Type: application/json
+
+            {
+                "enabled": true
+            }
+
+    :reqheader Authorization: valid JWT token
+
+    :reqjson string channel: notifications channel
+
+    :statuscode 200: OK
+    :statuscode 400: invalid JSON in request's body
+    :statuscode 401: auth errors
+    :statuscode 500: unexpected errors
+    """
+    try:
+        user_id = get_jwt_identity()
+        post_data = request.get_json()
+        channel = post_data['channel']
+        subscription = SubscriptionController.toggle(user_id, channel)
+
+    except SQLAlchemyError as e:
+        current_app.logger.error(f'{type(e).__name__}: {e}', exc_info=1)
+        return abort(500, 'Database error')
+
+    else:
+        current_app.logger.info(f'Subscription toggled: {subscription}')
+        status = subscription.enabled if subscription else False
+        return jsonify(enabled=status)
 
 
 @module.route(f'/notif/tg/{telegram_secret}', methods=['POST'])
@@ -479,15 +540,13 @@ def command_start(msg):
 
 @bot.message_handler(regexp='^[0-9]{8}$')
 def validate_otp(msg):
-    otp_controller = OTPController()
-    user_id = otp_controller.validate(msg.text, 'telegram')
+    user_id = OTPController.validate(msg.text, 'telegram')
 
     if not user_id:
         bot.send_message(msg.chat.id, 'Invalid OTP code')
         return
 
-    sub_controller = SubscriptionController()
-    sub = sub_controller.create(user_id, msg.chat.id, 'telegram')
+    sub = SubscriptionController.create(user_id, msg.chat.id, 'telegram')
 
     if sub:
         bot.send_message(
