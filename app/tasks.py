@@ -1,8 +1,11 @@
+from time import sleep
+
 from celery.utils.log import get_task_logger
 
 from . import create_app, db
-from .models import User, Resume, OTP, Subscription
-from .controllers import UserController
+from .models import User, Resume, OTP, Subscription, Notification
+from .controllers import (
+    UserController, SubscriptionController, NotificationController)
 from .providers import PushError, TokenError
 
 
@@ -20,8 +23,13 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(cleanup_period, cleanup_resume.s())
     sender.add_periodic_task(cleanup_period, cleanup_otp_codes.s())
     sender.add_periodic_task(cleanup_period, cleanup_subscriptions.s())
-    sender.add_periodic_task(current_app.config['REAUTH_PERIOD'], reauth.s())
-    sender.add_periodic_task(current_app.config['PUSH_PERIOD'], push.s())
+    sender.add_periodic_task(cleanup_period, cleanup_notifications.s())
+    sender.add_periodic_task(
+        current_app.config['REAUTH_PERIOD'], reauth_users.s())
+    sender.add_periodic_task(
+        current_app.config['PUSH_PERIOD'], push_resume.s())
+    sender.add_periodic_task(
+        current_app.config['NOTIFICATIONS_PERIOD'], notify_by_telegram.s())
 
 
 @celery.task
@@ -88,7 +96,29 @@ def cleanup_subscriptions():
 
 
 @celery.task
-def reauth():
+def cleanup_notifications():
+    result = default_result.copy()
+    notifications = Notification.query.all()
+    for notice in notifications:
+        if notice.is_expired:
+            try:
+                logger.warning(f'Cleanup notification: {notice}')
+                db.session.delete(notice)
+                db.session.commit()
+            except Exception as e:
+                result['failed'] += 1
+                logger.error(
+                    f'Cleanup notification failed: {notice}, {e}', exc_info=1)
+            else:
+                result['success'] += 1
+            finally:
+                result['total'] += 1
+
+    return result
+
+
+@celery.task
+def reauth_users():
     result = default_result.copy()
     users = User.query.all()
     for user in users:
@@ -105,6 +135,7 @@ def reauth():
         else:
             result['success'] += 1
             logger.info(f'Reauth success: {user}')
+            NotificationController.create(user, 'Token refresh success')
         finally:
             result['total'] += 1
 
@@ -112,7 +143,7 @@ def reauth():
 
 
 @celery.task
-def push():
+def push_resume():
     result = default_result.copy()
     resumes = Resume.query.filter_by(enabled=True).all()
     for resume in resumes:
@@ -128,7 +159,39 @@ def push():
         else:
             result['success'] += 1
             logger.info(f'Push success: {resume}')
+            NotificationController.create(
+                resume.owner, f'Resume "{resume.name}" push success')
         finally:
             result['total'] += 1
+
+    return result
+
+
+@celery.task
+def notify_by_telegram():
+    result = default_result.copy()
+    channel = 'telegram'
+
+    users = User.query.all()
+    for user in users:
+        subscription = SubscriptionController.fetch(user.id, channel)
+        if subscription:
+            notices = NotificationController.fetch(user.id, channel)
+            for notice in notices:
+                try:
+                    NotificationController.send_telegram(
+                        subscription.address, notice)
+                    sleep(1)
+                except Exception as e:
+                    result['failed'] += 1
+                    logger.exception(
+                        f'Notification send failed: {notice}, {e}', exc_info=1)
+                else:
+                    result['success'] += 1
+                    logger.info(f'Notification send success: {notice}')
+                finally:
+                    result['total'] += 1
+        else:
+            logger.warning(f'User {user} no have {channel} subscription')
 
     return result
