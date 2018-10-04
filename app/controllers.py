@@ -2,6 +2,7 @@ from random import randint
 from datetime import datetime, timedelta
 
 from flask import current_app
+from telebot import TeleBot
 
 from . import db, __version__
 from .models import User, Resume, OTP, Subscription, Notification
@@ -43,7 +44,7 @@ class ResumeController(object):
         for i in resumes:
             resume = Resume.query.filter_by(uniq=i['uniq'], owner=user).first()
             if not resume:
-                resume = Resume(uniq=i['uniq'], enabled=False, owner=user)
+                resume = Resume(uniq=i['uniq'], name=i['title'], owner=user)
                 current_app.logger.info(f'Resume created: {resume}')
                 db.session.add(resume)
 
@@ -165,16 +166,20 @@ class SubscriptionController(object):
         return sub
 
     @staticmethod
-    def fetch(user_id, channel=None):
+    def fetch(user_id, channel):
         user = User.query.get(user_id)
 
-        query = Subscription.query.filter_by(owner=user)
-        if channel:
-            query = query.filter_by(channel=channel)
+        for subscription in user.subscriptions:
+            if subscription.channel == channel:
+                return subscription
 
-        sub = query.all()
+        return
 
-        return [dict(channel=s.channel, enabled=s.enabled) for s in sub]
+    @staticmethod
+    def fetch_all(user_id):
+        user = User.query.get(user_id)
+
+        return user.subscriptions
 
     @staticmethod
     def toggle(user_id, channel):
@@ -187,3 +192,49 @@ class SubscriptionController(object):
             db.session.commit()
 
         return sub
+
+
+class NotificationController(object):
+    """Notification Controller"""
+
+    @staticmethod
+    def create(user, message):
+        ttl = timedelta(seconds=current_app.config['NOTIFICATIONS_TTL'])
+        timestamp = datetime.utcnow() + ttl
+
+        for sub in user.subscriptions:
+            if sub.is_enabled:
+                notice = Notification(
+                    message=message, channel=sub.channel,
+                    expires=timestamp, owner=user)
+
+                db.session.add(notice)
+
+        db.session.commit()
+
+        return True
+
+    @staticmethod
+    def fetch(user_id, channel):
+        user = User.query.get(user_id)
+        subscription = SubscriptionController.fetch(user_id, channel)
+
+        if not subscription:
+            return list()
+
+        notices = Notification.query.filter_by(
+            owner=user, channel=channel, sended=False).all()
+
+        return [n for n in notices if not n.is_expired]
+
+    @staticmethod
+    def send_telegram(address, notice):
+        bot = TeleBot(current_app.config['TELEGRAM_TOKEN'])
+        bot.send_message(address, notice.message)
+
+        notice.sended = True
+
+        db.session.add(notice)
+        db.session.commit()
+
+        return True
