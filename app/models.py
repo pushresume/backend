@@ -22,8 +22,11 @@ class User(db.Model):
     otp = db.relationship(
         'OTP', foreign_keys='OTP.user_id', backref='owner', uselist=False)
 
-    subscription = db.relationship(
+    subscriptions = db.relationship(
         'Subscription', foreign_keys='Subscription.user_id', backref='owner')
+
+    notifications = db.relationship(
+        'Notification', foreign_keys='Notification.user_id', backref='owner')
 
     @property
     def is_has_otp(self):
@@ -39,6 +42,7 @@ class Resume(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     uniq = db.Column(db.String(120), unique=True, nullable=False)
+    name = db.Column(db.String(120), default='Unknown', nullable=False)
     enabled = db.Column(db.Boolean, default=False, nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
@@ -76,6 +80,10 @@ class Subscription(db.Model):
     enabled = db.Column(db.Boolean, default=False, nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
+    @property
+    def is_enabled(self):
+        return self.enabled
+
     def __str__(self):
         return '{0}, channel={1}, enabled={2}, user={3}'.format(
             self.address, self.channel, self.enabled, self.owner)
@@ -96,6 +104,10 @@ class Notification(db.Model):
     def is_expired(self):
         return datetime.utcnow() > self.expires
 
+    @property
+    def is_sended(self):
+        return self.sended
+
     def __str__(self):
-        return '{0}, channel={1}, sended={2}, expires={3}, user={4}'.format(
-            self.message, self.channel, self.sended, self.expires, self.owner)
+        return '{0}, channel={1}, expires={2}, user={3}'.format(
+            self.message, self.channel, self.expires, self.owner)
