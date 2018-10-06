@@ -38,13 +38,16 @@ class Provider(BaseProvider):
             for item in rv.json()['objects']:
                 timestamp = datetime.fromtimestamp(item['date_published'])
                 published = timestamp - timedelta(hours=3)
-                arr.append({
-                    'uniq': str(item['id']),
+                resume = {
+                    'identity': str(item['id']),
                     'name': f'{item["firstname"]} {item["lastname"]}',
                     'title': item['profession'],
                     'published': published,
                     'link': item['link']
-                })
+                }
+                if item['photo_sizes']:
+                    resume['photo'] = item['photo_sizes']['medium']
+                arr.append(resume)
             return arr
 
     def push(self, token, resume):
