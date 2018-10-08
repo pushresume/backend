@@ -17,17 +17,18 @@ module = Blueprint('auth', __name__, url_prefix='/auth')
 @module.route('/providers', methods=['GET'])
 def providers():
     """
-    Providers list
+    Список провайдеров, через которых доступна авторизация для пользователей.
+    Используется в URL /auth/<provider>
 
-    .. :quickref: auth; Retrieve providers list
+    .. :quickref: auth; Список провайдеров
 
-    **Request**:
+    **Пример запроса**:
 
         .. sourcecode:: http
 
             GET /auth/providers HTTP/1.1
 
-    **Response**:
+    **Пример ответа**:
 
         .. sourcecode:: http
 
@@ -40,7 +41,7 @@ def providers():
             ]
 
     :statuscode 200: OK
-    :statuscode 500: unexpected errors
+    :statuscode 500: ошибки бэкенда
     """
     return jsonify([key for key in current_app.providers.keys()])
 
@@ -48,17 +49,18 @@ def providers():
 @module.route('/<provider_name>', methods=['GET'])
 def redirect(provider_name):
     """
-    Returns URL for redirect user to provider's auth page
+    Возвращает URL для последующего редиректа пользователя на страницу
+    авторизации провайдера
 
-    .. :quickref: auth; Retrieve redirect URL to provider's auth page
+    .. :quickref: auth; Адрес страницы авторизации провайдера
 
-    **Request**:
+    **Пример запроса**:
 
         .. sourcecode:: http
 
             GET /auth/<provider_name> HTTP/1.1
 
-    **Response**:
+    **Пример ответа**:
 
         .. sourcecode:: http
 
@@ -70,7 +72,7 @@ def redirect(provider_name):
             }
 
     :statuscode 200: OK
-    :statuscode 500: unexpected errors
+    :statuscode 500: ошибки бэкенда
     """
     provider = current_app.providers.get(provider_name.lower(), None)
     if not provider:
@@ -84,12 +86,13 @@ def redirect(provider_name):
 @validation_required(login_schema)
 def login(provider_name):
     """
-    Log-in user, returns JWT token for signing future requests
-    to protected routes.
+    Логин пользователя.
+    Обмен *code* из обратного редиректа провайдера на JWT-токен,
+    который необходим для последующих запросов к требующим авторизации методам
 
-    .. :quickref: auth; Retrieve JWT token to access protected routes
+    .. :quickref: auth; Логин пользователя, получение JWT-токена
 
-    **Request**:
+    **Пример запроса**:
 
         .. sourcecode:: http
 
@@ -100,7 +103,7 @@ def login(provider_name):
                 "code": "qwerty"
             }
 
-    **Response**:
+    **Пример ответа**:
 
         .. sourcecode:: http
 
@@ -111,12 +114,12 @@ def login(provider_name):
                 "token": "q1w2.e3r4.t5y"
             }
 
-    :reqjson string code: authorization code from callback
+    :reqjson string code: код, возвращаемый провайдером после авторизации
 
     :statuscode 200: OK
-    :statuscode 400: invalid JSON in request's body
-    :statuscode 500: unexpected errors
-    :statuscode 503: provider errors
+    :statuscode 400: невалидный JSON в теле запроса
+    :statuscode 500: ошибки бэкенда
+    :statuscode 503: ошибки взаимодействия с провайдером
     """
     try:
         provider = current_app.providers.get(provider_name.lower(), None)
@@ -171,18 +174,19 @@ def login(provider_name):
 @jwt_required
 def refresh():
     """
-    Returns new JWT token with fresh expiration date
+    Обмен текущего JWT-токена на новый,
+    используется для продления срока жизни токена
 
-    .. :quickref: auth; Refresh exists JWT token (reset TTL)
+    .. :quickref: auth; Обновление токена
 
-    **Request**:
+    **Пример запроса**:
 
         .. sourcecode:: http
 
             GET /auth/refresh HTTP/1.1
             Authorization: JWT q1w2.e3r4.t5y
 
-    **Response**:
+    **Пример ответа**:
 
         .. sourcecode:: http
 
@@ -193,11 +197,11 @@ def refresh():
                 "token": "q1w2.e3r4.t5y"
             }
 
-    :reqheader Authorization: valid JWT token
+    :reqheader Authorization: действующий JWT-токен
 
     :statuscode 200: OK
-    :statuscode 401: auth errors
-    :statuscode 500: unexpected errors
+    :statuscode 401: ошибки авторизации/проблемы с токеном
+    :statuscode 500: ошибки бэкенда
     """
     user_id = get_jwt_identity()
     token = create_access_token(user_id)

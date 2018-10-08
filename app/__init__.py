@@ -7,7 +7,7 @@ import sentry_sdk
 from redis import Redis
 from celery import Celery
 from telebot import TeleBot
-from flask import Flask, jsonify
+from flask import Flask
 from flask_cors import CORS
 from flask_caching import Cache
 from flask_sqlalchemy import SQLAlchemy
@@ -16,7 +16,8 @@ from werkzeug.contrib.fixers import ProxyFix
 from sentry_sdk.integrations.flask import FlaskIntegration
 
 import config
-from .utils import telegram_webhook, is_json, error_handler, jwt_unauth_err
+from .utils import (
+    register_telegram_webhook, json_in_body, error_handler, jwt_unauth_err)
 
 
 __version__ = '0.1.1'
@@ -51,7 +52,7 @@ def create_app():
     jwt.invalid_token_loader(lambda m: jwt_unauth_err(f'Invalid token: {m}'))
     jwt.revoked_token_loader(lambda: jwt_unauth_err('Token has been revoked'))
     jwt.expired_token_loader(lambda: jwt_unauth_err('Token has expired'))
-    jwt.user_loader_error_loader(lambda: jwt_unauth_err('User not found'))
+    jwt.user_loader_error_loader(lambda m: jwt_unauth_err(m))
     jwt.unauthorized_loader(lambda m: jwt_unauth_err(m))
 
     app.bot = bot
@@ -60,8 +61,8 @@ def create_app():
     app.redis = Redis.from_url(app.config['REDIS_URL'])
     app.queue = Celery('pushresume', broker=app.config['REDIS_URL'])
 
-    app.before_request(is_json)
-    app.before_first_request(telegram_webhook)
+    app.before_request(json_in_body)
+    app.before_first_request(register_telegram_webhook)
     app.register_error_handler(Exception, error_handler)
 
     app.providers = {}
@@ -87,11 +88,10 @@ def create_app():
                     f'Controller [{controller}] load failed: {e}', exc_info=1)
                 continue
 
-    cache.clear()
-
-    @app.route('/', methods=['GET'])
-    def about():
-        return jsonify(version=__version__)
+    try:
+        cache.clear()
+    except Exception as e:
+        app.logger.warning(f'Cache clean error: {e}')
 
     app.logger.info(f'PushResume {__version__} startup')
 

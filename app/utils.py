@@ -19,7 +19,7 @@ def validation_required(schema):
     return wrapper
 
 
-def telegram_webhook():
+def register_telegram_webhook():
     url = current_app.config['BACKEND_URL']
     current_app.logger.info(f'Telegram secret: {current_app.tgsecret}')
     try:
@@ -33,7 +33,7 @@ def telegram_webhook():
         current_app.logger.info('Telegram webhook successfully created')
 
 
-def is_json():
+def json_in_body():
     if request.method == 'POST' and not request.is_json:
         return abort(400, 'Invalid JSON')
 

@@ -18,18 +18,18 @@ module = Blueprint('notifications', __name__, url_prefix='/notifications')
 @jwt_required
 def channels():
     """
-    Returns list of available notification channels
+    Список доступных каналов уведомлений
 
-    .. :quickref: notifications; List of available channels
+    .. :quickref: notifications; Список каналов уведомлений
 
-    **Request**:
+    **Пример запроса**:
 
         .. sourcecode:: http
 
             GET /notifications/channels HTTP/1.1
             Authorization: JWT q1w2.e3r4.t5y
 
-    **Response**:
+    **Пример ответа**:
 
         .. sourcecode:: http
 
@@ -41,31 +41,31 @@ def channels():
                 "<channel_2>"
             ]
 
-    :reqheader Authorization: valid JWT token
+    :reqheader Authorization: действующий JWT-токен
 
     :statuscode 200: OK
-    :statuscode 401: auth errors
-    :statuscode 500: unexpected errors
+    :statuscode 401: ошибки авторизации/проблемы с токеном
+    :statuscode 500: ошибки бэкенда
     """
     return jsonify(current_app.config['NOTIFICATIONS_CHANNELS'])
 
 
-@module.route('/confirmation/<channel>', methods=['GET'])
+@module.route('/confirm/<channel>', methods=['GET'])
 @jwt_required
 def confirmation(channel):
     """
-    Returns confirmation code
+    Код подтверждения канала уводомлений
 
-    .. :quickref: notifications; Generate confirmation code for channel
+    .. :quickref: notifications; Получить код подтверждения
 
-    **Request**:
+    **Пример запроса**:
 
         .. sourcecode:: http
 
             GET /notifications/confirmations/<channel_name> HTTP/1.1
             Authorization: JWT q1w2.e3r4.t5y
 
-    **Response**:
+    **Пример ответа**:
 
         .. sourcecode:: http
 
@@ -77,13 +77,13 @@ def confirmation(channel):
                 "ttl": 37
             }
 
-    :reqheader Authorization: valid JWT token
+    :reqheader Authorization: действующий JWT-токен
 
-    :reqjson string channel: notifications channel
+    :reqjson string channel: канал уведомлений
 
     :statuscode 200: OK
-    :statuscode 401: auth errors
-    :statuscode 500: unexpected errors
+    :statuscode 401: ошибки авторизации/проблемы с токеном
+    :statuscode 500: ошибки бэкенда
     """
 
     if channel not in current_app.config['NOTIFICATIONS_CHANNELS']:
@@ -116,18 +116,18 @@ def confirmation(channel):
 @jwt_required
 def subscriptions():
     """
-    Returns list of user subscriptions
+    Список подписок на каналы уведомлений
 
-    .. :quickref: notifications; List of user subscriptions
+    .. :quickref: notifications; Получить подписки пользователя
 
-    **Request**:
+    **Пример запроса**:
 
         .. sourcecode:: http
 
             GET /notifications/subscriptions HTTP/1.1
             Authorization: JWT q1w2.e3r4.t5y
 
-    **Response**:
+    **Пример ответа**:
 
         .. sourcecode:: http
 
@@ -145,11 +145,11 @@ def subscriptions():
                 }
             ]
 
-    :reqheader Authorization: valid JWT token
+    :reqheader Authorization: действующий JWT-токен
 
     :statuscode 200: OK
-    :statuscode 401: auth errors
-    :statuscode 500: unexpected errors
+    :statuscode 401: ошибки авторизации/проблемы с токеном
+    :statuscode 500: ошибки бэкенда
     """
     user_id = get_jwt_identity()
     user = User.query.get(user_id)
@@ -171,11 +171,11 @@ def subscriptions():
 @validation_required(subscription_schema)
 def subscriptions_toggle():
     """
-    Enable/disable notification for subscription
+    Включение/выключение уведомления через выбранный канал
 
-    .. :quickref: notifications; Toggle notification for subscription
+    .. :quickref: notifications; Включить/выключить уведомления для канала
 
-    **Request**:
+    **Пример запроса**:
 
         .. sourcecode:: http
 
@@ -187,7 +187,7 @@ def subscriptions_toggle():
                 "channel": "<channel_type>"
             }
 
-    **Response**:
+    **Пример ответа**:
 
         .. sourcecode:: http
 
@@ -198,14 +198,14 @@ def subscriptions_toggle():
                 "enabled": true
             }
 
-    :reqheader Authorization: valid JWT token
+    :reqheader Authorization: действующий JWT-токен
 
-    :reqjson string channel: notifications channel
+    :reqjson string channel: канал уведомлений
 
     :statuscode 200: OK
-    :statuscode 400: invalid JSON in request's body
-    :statuscode 401: auth errors
-    :statuscode 500: unexpected errors
+    :statuscode 400: невалидный JSON в теле запроса
+    :statuscode 401: ошибки авторизации/проблемы с токеном
+    :statuscode 500: ошибки бэкенда
     """
     user_id = get_jwt_identity()
     user = User.query.get(user_id)

@@ -8,25 +8,25 @@ from ..utils import validation_required
 from ..schema import resume_schema
 
 
-module = Blueprint('resume', __name__, url_prefix='/resume')
+module = Blueprint('resume', __name__)
 
 
-@module.route('/list', methods=['GET'])
+@module.route('/resume', methods=['GET'])
 @jwt_required
 def resume():
     """
-    Retrieve user's resume list directly from providers
+    Получение списка резюме пользователя по всем аккаунтам
 
-    .. :quickref: resume; Retrieve resume from providers
+    .. :quickref: resume; Получить список резюме
 
-    **Request**:
+    **Пример запроса**:
 
         .. sourcecode:: http
 
             GET /refresh HTTP/1.1
             Authorization: JWT q1w2.e3r4.t5y
 
-    **Response**:
+    **Пример ответа**:
 
         .. sourcecode:: http
 
@@ -58,12 +58,12 @@ def resume():
                 ]
             }
 
-    :reqheader Authorization: valid JWT token
+    :reqheader Authorization: действующий JWT-токен
 
     :statuscode 200: OK
-    :statuscode 401: auth errors
-    :statuscode 500: unexpected errors
-    :statuscode 503: provider errors
+    :statuscode 401: ошибки авторизации/проблемы с токеном
+    :statuscode 500: ошибки бэкенда
+    :statuscode 503: ошибки взаимодействия с провайдером
     """
     result = {}
     try:
@@ -104,16 +104,16 @@ def resume():
         return jsonify(result)
 
 
-@module.route('/toggle', methods=['POST'])
+@module.route('/resume', methods=['POST'])
 @jwt_required
 @validation_required(resume_schema)
 def resume_toggle():
     """
-    Enable/disable automatically publish user's resume
+    Включение/выключение автоматического обновления резюме
 
-    .. :quickref: resume; Toggle automatically publish user's resume
+    .. :quickref: resume; Включить/выключить автоматическое обновление
 
-    **Request**:
+    **Пример запроса**:
 
         .. sourcecode:: http
 
@@ -125,7 +125,7 @@ def resume_toggle():
                 "identity": "q1w2e3r4t5y6"
             }
 
-    **Response**:
+    **Пример ответа**:
 
         .. sourcecode:: http
 
@@ -136,14 +136,14 @@ def resume_toggle():
                 "enabled": true
             }
 
-    :reqheader Authorization: valid JWT token
+    :reqheader Authorization: действующий JWT-токен
 
-    :reqjson string identity: provider's resume id
+    :reqjson string identity: идентификатор резюме
 
     :statuscode 200: OK
-    :statuscode 400: invalid JSON in request's body
-    :statuscode 401: auth errors
-    :statuscode 500: unexpected errors
+    :statuscode 400: невалидный JSON в теле запроса
+    :statuscode 401: ошибки авторизации/проблемы с токеном
+    :statuscode 500: ошибки бэкенда
     """
     user_id = get_jwt_identity()
     user = User.query.get(user_id)

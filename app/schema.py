@@ -1,3 +1,6 @@
+from flask import current_app
+
+
 login_schema = {
     'code': {
         'type': 'string',
@@ -16,6 +19,6 @@ subscription_schema = {
     'channel': {
         'type': 'string',
         'required': True,
-        'allowed': ['telegram']
+        'allowed': current_app.config['NOTIFICATIONS_CHANNELS']
     }
 }

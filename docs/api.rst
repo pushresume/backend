@@ -1,7 +1,7 @@
 Public API
 ----------
 
-This documentation will help you to integrate with PushResume API
+Документация поможет интегрировать ваше приложение с PushResume API
 
 Routes
 ======

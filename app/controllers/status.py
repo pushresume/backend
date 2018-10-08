@@ -2,21 +2,31 @@ from flask import Blueprint, current_app, abort, jsonify
 from sqlalchemy.exc import SQLAlchemyError
 from redis import RedisError
 
-from .. import cache
+from .. import cache, __version__
 from ..models import (
     User, Account, Resume, Confirmation, Subscription, Notification)
 
 
-module = Blueprint('status', __name__, url_prefix='/status')
+module = Blueprint('status', __name__)
 
 
 @module.route('/', methods=['GET'])
+def about():
+    """
+    Версия приложения
+
+    .. :quickref: status; Версия приложения
+    """
+    return jsonify(version=__version__)
+
+
+@module.route('/status', methods=['GET'])
 @cache.cached()
 def main():
     """
-    Application's usage statistic, update every 5 minutes
+    Статистика приложения
 
-    .. :quickref: stats; Application's usage statistic
+    .. :quickref: status; Статистика приложения
     """
     try:
         users = User.query.count()
