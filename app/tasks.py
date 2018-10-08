@@ -8,7 +8,7 @@ from sentry_sdk.integrations.celery import CeleryIntegration
 from . import create_app, db
 from .providers import PushError, TokenError
 from .models import (
-    User, Credential, Resume, Confirmation, Subscription, Notification)
+    User, Account, Resume, Confirmation, Subscription, Notification)
 
 
 current_app = create_app()  # not app!
@@ -27,16 +27,64 @@ sentry_sdk.init(
 @celery.on_after_configure.connect
 def setup_periodic_tasks(sender, **kwargs):
     cleanup_period = current_app.config['CLEANUP_PERIOD']
+    sender.add_periodic_task(cleanup_period, cleanup_users.s())
     sender.add_periodic_task(cleanup_period, cleanup_resume.s())
+    sender.add_periodic_task(cleanup_period, cleanup_accounts.s())
     sender.add_periodic_task(cleanup_period, cleanup_confirmations.s())
     sender.add_periodic_task(cleanup_period, cleanup_subscriptions.s())
     sender.add_periodic_task(cleanup_period, cleanup_notifications.s())
     sender.add_periodic_task(
-        current_app.config['REAUTH_PERIOD'], refresh_credentials.s())
+        current_app.config['REAUTH_PERIOD'], refresh_accounts.s())
     sender.add_periodic_task(
         current_app.config['PUSH_PERIOD'], push_resume.s())
     sender.add_periodic_task(
         current_app.config['NOTIFICATIONS_PERIOD'], notify_by_telegram.s())
+
+
+@celery.task
+def cleanup_users():
+    result = default_result.copy()
+    users = User.query.all()
+    for user in users:
+        if not user.accounts and not user.resume:
+            try:
+                logger.warning(f'Cleanup user: {user}')
+                db.session.delete(user)
+                db.session.commit()
+            except Exception as e:
+                result['failed'] += 1
+                logger.error(
+                    f'Cleanup user failed: {user}, err={e}', exc_info=1)
+            else:
+                result['success'] += 1
+            finally:
+                result['total'] += 1
+
+    return result
+
+
+@celery.task
+def cleanup_accounts():
+    result = default_result.copy()
+    accounts = Account.query.all()
+    for account in accounts:
+        deep_expires = account.expires + timedelta(days=30)
+        deep_ttl_expired = datetime.utcnow() > deep_expires
+        if account.is_expired and deep_ttl_expired:
+            try:
+                logger.warning(f'Cleanup account: {account}')
+                db.session.delete(account)
+                db.session.commit()
+            except Exception as e:
+                result['failed'] += 1
+                logger.error(
+                    f'Cleanup account failed: {account}, err={e}', exc_info=1)
+            else:
+                result['success'] += 1
+            finally:
+                result['total'] += 1
+
+    return result
 
 
 @celery.task
@@ -127,34 +175,34 @@ def cleanup_notifications():
 
 
 @celery.task
-def refresh_credentials():
+def refresh_accounts():
     result = default_result.copy()
-    credentials = Credential.query.all()
-    for credential in credentials:
+    accounts = Account.query.all()
+    for account in accounts:
         try:
-            provider = current_app.providers[credential.provider]
-            ids = provider.tokenize(credential.refresh, refresh=True)
+            provider = current_app.providers[account.provider]
+            ids = provider.tokenize(account.refresh, refresh=True)
 
-            credential.access = ids['access_token']
-            credential.refresh = ids['refresh_token']
+            account.access = ids['access_token']
+            account.refresh = ids['refresh_token']
 
             delta = timedelta(seconds=ids['expires_in'])
-            credential.expires = datetime.utcnow() + delta
+            account.expires = datetime.utcnow() + delta
 
-            db.session.add(credential)
+            db.session.add(account)
             db.session.commit()
         except TokenError as e:
             result['failed'] += 1
-            logger.warning(f'Reauth failed: {credential}, status={e}')
+            logger.warning(f'Reauth failed: {account}, status={e}')
         except Exception as e:
             result['failed'] += 1
             logger.exception(
-                f'Reauth failed: {credential}, err={e}', exc_info=1)
+                f'Reauth failed: {account}, err={e}', exc_info=1)
         else:
             result['success'] += 1
-            logger.info(f'Reauth success: {credential}')
+            logger.info(f'Reauth success: {account}')
             Notification.create(
-                user=credential.owner, msg='Token refresh success',
+                user=account.owner, msg='Token refresh success',
                 ttl=current_app.config['NOTIFICATIONS_TTL'])
         finally:
             result['total'] += 1
@@ -168,8 +216,9 @@ def push_resume():
     resumes = Resume.query.filter_by(enabled=True).all()
     for resume in resumes:
         try:
-            provider = current_app.providers[resume.owner.provider]
-            provider.push(token=resume.owner.access, resume=resume.uniq)
+            account = resume.account
+            provider = current_app.providers[account.provider]
+            provider.push(token=account.access, resume=resume.identity)
         except PushError as e:
             result['failed'] += 1
             logger.warning(f'Push failed: {resume}, status={e}')

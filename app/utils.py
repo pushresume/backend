@@ -53,3 +53,8 @@ def error_handler(e):
 
 def generate_confirm_code(length=8):
     return randint(10**(length-1), (10**length)-1)
+
+
+def jwt_unauth_err(msg):
+    message = {'status': 401, 'error': 'Unauthorized', 'message': msg}
+    return jsonify(message), 401

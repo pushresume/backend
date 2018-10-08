@@ -2,9 +2,9 @@ from flask import Blueprint, current_app, abort, jsonify
 from sqlalchemy.exc import SQLAlchemyError
 from redis import RedisError
 
-from .. import cache, __version__
+from .. import cache
 from ..models import (
-    User, Credential, Resume, Confirmation, Subscription, Notification)
+    User, Account, Resume, Confirmation, Subscription, Notification)
 
 
 module = Blueprint('status', __name__, url_prefix='/status')
@@ -20,14 +20,14 @@ def main():
     """
     try:
         users = User.query.count()
-        credentials = Credential.query.count()
+        accounts = Account.query.count()
         resume = Resume.query.count()
         confirmations = Confirmation.query.count()
         subscriptions = Subscription.query.count()
         notifications = Notification.query.count()
         redis = current_app.redis.info('memory')
 
-        rows = users + credentials + resume
+        rows = users + accounts + resume
         rows += confirmations + subscriptions + notifications
 
         result = {
@@ -41,15 +41,15 @@ def main():
                     'current': redis['used_memory'],
                     'max': current_app.config['MAX_REDIS_MEMORY']
                 }
-            },
-            'version': __version__
+            }
         }
 
+        joined = Resume.query.join(Account)
         for prov in current_app.providers.keys():
             provider = {
                 'name': prov,
-                'users': Credential.query.filter_by(provider=prov).count(),
-                'resume': Resume.query.filter_by(provider=prov).count()
+                'accounts': Account.query.filter_by(provider=prov).count(),
+                'resume': joined.filter(Account.provider == prov).count()
             }
             result['providers'].append(provider)
 

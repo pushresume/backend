@@ -23,7 +23,7 @@ class Provider(BaseProvider):
         else:
             if rv.status_code is not 200:
                 raise IdentityError(f'{rv.status_code} {rv.json()}')
-            return rv.json()['email']
+            return rv.json()['id']
 
     def fetch(self, token):
         try:

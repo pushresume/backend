@@ -8,7 +8,7 @@ from telebot import types
 from .. import db
 from ..models import User, Confirmation, Subscription
 from ..utils import validation_required, generate_confirm_code
-from ..schema import confirmation_schema, subscription_schema
+from ..schema import subscription_schema
 
 
 module = Blueprint('notifications', __name__, url_prefix='/notifications')

@@ -31,7 +31,7 @@ class BaseProvider(object):
         self._redirect_uri = redirect_uri
         self._prov = OAuth2Service(name=name, **kwargs)
 
-    def redirect(self, back_url=None):
+    def redirect(self):
         raise NotImplemented
 
     def identity(self, token):

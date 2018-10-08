@@ -12,12 +12,10 @@ resume_schema = {
     }
 }
 
-confirmation_schema = {
+subscription_schema = {
     'channel': {
         'type': 'string',
         'required': True,
         'allowed': ['telegram']
     }
 }
-
-subscription_schema = confirmation_schema

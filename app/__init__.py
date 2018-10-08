@@ -7,7 +7,7 @@ import sentry_sdk
 from redis import Redis
 from celery import Celery
 from telebot import TeleBot
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_caching import Cache
 from flask_sqlalchemy import SQLAlchemy
@@ -16,13 +16,14 @@ from werkzeug.contrib.fixers import ProxyFix
 from sentry_sdk.integrations.flask import FlaskIntegration
 
 import config
-from .utils import telegram_webhook, is_json, error_handler
+from .utils import telegram_webhook, is_json, error_handler, jwt_unauth_err
 
 
 __version__ = '0.1.1'
 
 db = SQLAlchemy()
 cache = Cache()
+jwt = JWTManager()
 bot = TeleBot(config.TELEGRAM_TOKEN, threaded=False)
 
 
@@ -40,21 +41,24 @@ def create_app():
 
     db.init_app(app)
     cache.init_app(app)
-    JWTManager(app)
     CORS(app, resources={r'/*': {'origins': app.config['FRONTEND_URL']}})
     sentry_sdk.init(
         dsn=app.config['SENTRY_DSN'],
         environment='development' if app.debug else 'production',
         integrations=[FlaskIntegration()])
 
+    jwt.init_app(app)
+    jwt.invalid_token_loader(lambda m: jwt_unauth_err(f'Invalid token: {m}'))
+    jwt.revoked_token_loader(lambda: jwt_unauth_err('Token has been revoked'))
+    jwt.expired_token_loader(lambda: jwt_unauth_err('Token has expired'))
+    jwt.user_loader_error_loader(lambda: jwt_unauth_err('User not found'))
+    jwt.unauthorized_loader(lambda m: jwt_unauth_err(m))
+
     app.bot = bot
     app.tgsecret = uuid4()
     app.wsgi_app = ProxyFix(app.wsgi_app)
     app.redis = Redis.from_url(app.config['REDIS_URL'])
-    app.queue = Celery(
-        'pushresume',
-        backend=app.config['REDIS_URL'],
-        broker=app.config['REDIS_URL'])
+    app.queue = Celery('pushresume', broker=app.config['REDIS_URL'])
 
     app.before_request(is_json)
     app.before_first_request(telegram_webhook)
@@ -83,8 +87,12 @@ def create_app():
                     f'Controller [{controller}] load failed: {e}', exc_info=1)
                 continue
 
-    app.logger.info(f'PushResume {__version__} startup')
-
     cache.clear()
+
+    @app.route('/', methods=['GET'])
+    def about():
+        return jsonify(version=__version__)
+
+    app.logger.info(f'PushResume {__version__} startup')
 
     return app

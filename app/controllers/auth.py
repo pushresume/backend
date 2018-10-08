@@ -2,10 +2,10 @@ from datetime import datetime, timedelta
 
 from flask import Blueprint, current_app, abort, request, jsonify
 from flask_jwt_extended import (
-    create_access_token, jwt_required, get_jwt_identity)
+    create_access_token, jwt_required, jwt_optional, get_jwt_identity)
 
 from .. import db
-from ..models import User, Credential
+from ..models import User, Account
 from ..providers import ProviderError
 from ..utils import validation_required
 from ..schema import login_schema
@@ -80,6 +80,7 @@ def redirect(provider_name):
 
 
 @module.route('/<provider_name>', methods=['POST'])
+@jwt_optional
 @validation_required(login_schema)
 def login(provider_name):
     """
@@ -127,23 +128,34 @@ def login(provider_name):
         ids = provider.tokenize(code, refresh=False)
         identity = provider.identity(ids['access_token'])
 
-        user = User.query.filter_by(identity=identity).first()
-        if not user:
-            user = User(identity=identity)
+        account = Account.query.filter_by(identity=identity).first()
 
-        credential = Credential.query.filter_by(
-            owner=user, provider=provider.name).first()
-        if not credential:
-            credential = Credential(owner=user, provider=provider.name)
+        user_id = get_jwt_identity()
+        if user_id:
+            user = User.query.get(user_id)
+        else:
+            user = None
 
-        credential.access = ids['access_token']
-        credential.refresh = ids['refresh_token']
+        if account and user:
+            account.owner = user
+
+        elif account and not user:
+            user = account.owner
+
+        elif not account:
+            if not user:
+                user = User()
+            account = Account(identity=identity, owner=user)
+
+        account.provider = provider.name
+        account.access = ids['access_token']
+        account.refresh = ids['refresh_token']
 
         delta = timedelta(seconds=ids['expires_in'])
-        credential.expires = datetime.utcnow() + delta
+        account.expires = datetime.utcnow() + delta
 
         db.session.add(user)
-        db.session.add(credential)
+        db.session.add(account)
         db.session.commit()
 
     except ProviderError as e:

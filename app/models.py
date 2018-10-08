@@ -1,4 +1,7 @@
+from uuid import uuid4
 from datetime import datetime, timedelta
+
+from sqlalchemy.orm import backref
 
 from . import db
 
@@ -8,47 +11,34 @@ class User(db.Model):
     __tablename__ = 'users'
 
     id = db.Column(db.Integer, primary_key=True)
-    identity = db.Column(db.String(120), unique=True, nullable=False)
-
-    credentials = db.relationship(
-        'Credential', foreign_keys='Credential.user_id', backref='owner')
-
-    resume = db.relationship(
-        'Resume', foreign_keys='Resume.user_id', backref='owner')
-
-    confirmations = db.relationship(
-        'Confirmation', foreign_keys='Confirmation.user_id', backref='owner')
-
-    subscriptions = db.relationship(
-        'Subscription', foreign_keys='Subscription.user_id', backref='owner')
-
-    notifications = db.relationship(
-        'Notification', foreign_keys='Notification.user_id', backref='owner')
+    identity = db.Column(
+        db.String(36), unique=True, default=lambda: f'{uuid4()}')
 
     def __str__(self):
         return self.identity
 
 
-class Credential(db.Model):
+class Account(db.Model):
 
-    __tablename__ = 'credentials'
-    __table_args__ = (
-        db.Index(f'uniq_{__tablename__}', 'user_id', 'provider', unique=True),)
+    __tablename__ = 'accounts'
 
     id = db.Column(db.Integer, primary_key=True)
-    provider = db.Column(db.String(120), nullable=False)
+    identity = db.Column(db.String(120), unique=True, nullable=False)
     access = db.Column(db.String(200), nullable=False)
     refresh = db.Column(db.String(200), nullable=False)
     expires = db.Column(db.DateTime, nullable=False)
+    provider = db.Column(db.String(120), nullable=False)
 
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    owner = db.relationship('User', backref='accounts')
 
     @property
     def is_expired(self):
         return datetime.utcnow() > self.expires
 
     def __str__(self):
-        return f'{self.owner.identity}, provider={self.provider}'
+        return f'{self.identity}, provider={self.provider}, user={self.owner}'
 
 
 class Resume(db.Model):
@@ -59,9 +49,13 @@ class Resume(db.Model):
     identity = db.Column(db.String(120), unique=True, nullable=False)
     enabled = db.Column(db.Boolean, default=False, nullable=False)
     name = db.Column(db.String(120), nullable=False)
-    provider = db.Column(db.String(120), nullable=False)
 
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    account_id = db.Column(
+        db.Integer, db.ForeignKey('accounts.id'), nullable=False)
+
+    owner = db.relationship('User', backref='resume')
+    account = db.relationship('Account', backref='resume', uselist=False)
 
     @property
     def is_enabled(self):
@@ -83,6 +77,9 @@ class Confirmation(db.Model):
     channel = db.Column(db.String(120), unique=False, nullable=False)
 
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    owner = db.relationship(
+        'User', backref=backref('confirmations', cascade='all,delete'))
 
     @property
     def is_expired(self):
@@ -112,6 +109,9 @@ class Subscription(db.Model):
 
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
+    owner = db.relationship(
+        'User', backref=backref('subscriptions', cascade='all,delete'))
+
     @property
     def is_enabled(self):
         return self.enabled
@@ -136,6 +136,9 @@ class Notification(db.Model):
     sended = db.Column(db.Boolean, default=False, nullable=False)
 
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    owner = db.relationship(
+        'User', backref=backref('notifications', cascade='all,delete'))
 
     @classmethod
     def create(cls, user, msg, ttl):

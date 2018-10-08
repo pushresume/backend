@@ -70,25 +70,29 @@ def resume():
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
-        for credential in user.credentials:
-            provider = current_app.providers[credential.provider]
-            resumes = provider.fetch(credential.access)
+        for account in user.accounts:
+            provider = current_app.providers[account.provider]
+
+            if provider.name not in result:
+                result[provider.name] = []
+
+            resumes = provider.fetch(account.access)
             for item in resumes:
                 resume = Resume.query.filter_by(
-                    identity=item['identity'], owner=user).first()
-
+                    identity=item['identity']).first()
                 if not resume:
                     resume = Resume(
                         identity=item['identity'], enabled=False,
-                        name=item['title'], owner=user, provider=provider.name)
+                        name=item['title'], owner=user, account=account)
                     current_app.logger.info(f'Resume created: {resume}')
 
                 resume.name = item['title']
+                resume.owner = user
                 db.session.add(resume)
 
                 item['enabled'] = resume.enabled
 
-                result[credential.provider] = resumes
+            result[provider.name].extend(resumes)
 
         db.session.commit()
 
