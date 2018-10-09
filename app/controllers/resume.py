@@ -72,10 +72,6 @@ def resume():
 
         for account in user.accounts:
             provider = current_app.providers[account.provider]
-
-            if provider.name not in result:
-                result[provider.name] = []
-
             resumes = provider.fetch(account.access)
             for item in resumes:
                 resume = Resume.query.filter_by(
@@ -92,7 +88,10 @@ def resume():
 
                 item['enabled'] = resume.enabled
 
-            result[provider.name].extend(resumes)
+            if resumes:
+                if provider.name not in result:
+                    result[provider.name] = []
+                result[provider.name].extend(resumes)
 
         db.session.commit()
 
@@ -101,7 +100,8 @@ def resume():
         return abort(503, 'Provider error')
 
     else:
-        return jsonify(result)
+        struct = [dict(provider=k, resume=v) for k, v in result.items()]
+        return jsonify(struct)
 
 
 @module.route('/resume', methods=['POST'])

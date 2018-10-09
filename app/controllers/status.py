@@ -41,7 +41,7 @@ def main():
         rows += confirmations + subscriptions + notifications
 
         result = {
-            'providers': [],
+            'statistics': [],
             'health': {
                 'database': {
                     'current': rows,
@@ -57,11 +57,11 @@ def main():
         joined = Resume.query.join(Account)
         for prov in current_app.providers.keys():
             provider = {
-                'name': prov,
+                'provider': prov,
                 'accounts': Account.query.filter_by(provider=prov).count(),
                 'resume': joined.filter(Account.provider == prov).count()
             }
-            result['providers'].append(provider)
+            result['statistics'].append(provider)
 
     except RedisError as e:
         current_app.logger.error(f'Redis error: {e}')
