@@ -47,6 +47,10 @@ MAX_REDIS_MEMORY = 25000000  # bytes
 
 SENTRY_DSN = os.getenv('SENTRY_DSN')
 
+SCOUT_KEY = os.getenv('SCOUT_KEY')
+SCOUT_MONITOR = True
+SCOUT_NAME = 'pushresume-dev' if DEBUG else 'pushresume'
+
 # PROVIDERS SETTINGS
 
 HEADHUNTER = {

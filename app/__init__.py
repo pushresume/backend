@@ -13,7 +13,10 @@ from flask_caching import Cache
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from werkzeug.contrib.fixers import ProxyFix
+from scout_apm.flask import ScoutApm
+from scout_apm.flask.sqlalchemy import instrument_sqlalchemy
 from sentry_sdk.integrations.flask import FlaskIntegration
+
 
 import config
 from .utils import (
@@ -42,6 +45,8 @@ def create_app():
 
     db.init_app(app)
     cache.init_app(app)
+    ScoutApm(app)
+    instrument_sqlalchemy(db)
     CORS(app, resources={r'/*': {'origins': app.config['FRONTEND_URL']}})
     sentry_sdk.init(
         dsn=app.config['SENTRY_DSN'],

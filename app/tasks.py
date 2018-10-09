@@ -2,6 +2,8 @@ from time import sleep
 from datetime import datetime, timedelta
 
 import sentry_sdk
+import scout_apm.celery
+from scout_apm.api import Config
 from celery.utils.log import get_task_logger
 from sentry_sdk.integrations.celery import CeleryIntegration
 
@@ -22,6 +24,13 @@ sentry_sdk.init(
     dsn=current_app.config['SENTRY_DSN'],
     environment='development' if current_app.debug else 'production',
     integrations=[CeleryIntegration()])
+
+Config.set(
+    key=current_app.config['SCOUT_KEY'],
+    monitor=current_app.config['SCOUT_MONITOR'],
+    name=current_app.config['SCOUT_NAME'])
+
+scout_apm.celery.install()
 
 
 @celery.on_after_configure.connect
