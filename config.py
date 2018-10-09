@@ -25,6 +25,7 @@ SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'postgres://')
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 REDIS_URL = os.getenv('REDIS_URL', 'redis://')
+REDIS_MAX_CONNECTIONS = 5
 
 CACHE_TYPE = 'redis'
 CACHE_KEY_PREFIX = 'cache'

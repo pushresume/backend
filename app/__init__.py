@@ -58,8 +58,14 @@ def create_app():
     app.bot = bot
     app.tgsecret = uuid4()
     app.wsgi_app = ProxyFix(app.wsgi_app)
-    app.redis = Redis.from_url(app.config['REDIS_URL'])
-    app.queue = Celery('pushresume', broker=app.config['REDIS_URL'])
+    app.redis = Redis.from_url(
+        app.config['REDIS_URL'],
+        max_connections=app.config['REDIS_MAX_CONNECTIONS'])
+    app.queue = Celery(
+        'pushresume',
+        broker=app.config['REDIS_URL'],
+        broker_pool_limit=0,  # app.config['REDIS_MAX_CONNECTIONS'],
+        redis_max_connections=app.config['REDIS_MAX_CONNECTIONS'])
 
     app.before_request(json_in_body)
     app.before_first_request(register_telegram_webhook)
