@@ -62,7 +62,7 @@ def confirmation(channel):
 
         .. sourcecode:: http
 
-            GET /notifications/confirmations/<channel_name> HTTP/1.1
+            GET /notifications/confirm/<channel_name> HTTP/1.1
             Authorization: JWT q1w2.e3r4.t5y
 
     **Пример ответа**:

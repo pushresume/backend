@@ -16,6 +16,26 @@ def about():
     Версия приложения
 
     .. :quickref: status; Версия приложения
+
+    **Пример запроса**:
+
+        .. sourcecode:: http
+
+            GET / HTTP/1.1
+
+    **Пример ответа**:
+
+        .. sourcecode:: http
+
+            HTTP/1.1 200 OK
+            Content-Type: application/json
+
+            {
+                "version": "1.2.3"
+            }
+
+    :statuscode 200: OK
+    :statuscode 500: ошибки бэкенда
     """
     return jsonify(version=__version__)
 
@@ -24,9 +44,50 @@ def about():
 @cache.cached()
 def main():
     """
-    Статистика приложения
+    Состояние и статистика приложения
 
     .. :quickref: status; Статистика приложения
+
+    **Пример запроса**:
+
+        .. sourcecode:: http
+
+            GET /status HTTP/1.1
+
+    **Пример ответа**:
+
+        .. sourcecode:: http
+
+            HTTP/1.1 200 OK
+            Content-Type: application/json
+
+            {
+                "health": {
+                    "cache": {
+                        "current": 123,
+                        "max": 100500
+                    },
+                    "database": {
+                        "current": 456,
+                        "max": 500100
+                    }
+                },
+                "statistics": [
+                    {
+                        "provider": "provider_one",
+                        "accounts": 123,
+                        "resume": 456
+                    },
+                    {
+                        "provider": "provider_two",
+                        "accounts": 456,
+                        "resume": 123
+                    }
+                ]
+            }
+
+    :statuscode 200: OK
+    :statuscode 500: ошибки бэкенда
     """
     try:
         users = User.query.count()

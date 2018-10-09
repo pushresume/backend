@@ -23,7 +23,7 @@ def resume():
 
         .. sourcecode:: http
 
-            GET /refresh HTTP/1.1
+            GET /resume HTTP/1.1
             Authorization: JWT q1w2.e3r4.t5y
 
     **Пример ответа**:
@@ -33,30 +33,36 @@ def resume():
             HTTP/1.1 200 OK
             Content-Type: application/json
 
-            {
-                "provider_one": [
-                    {
-                        "enabled": false,
-                        "link": "https://<provider's resume page>",
-                        "name": "John Doe",
-                        "published": "Fri, 05 Oct 2018 20:18:11 GMT",
-                        "title": "Proctologist",
-                        "identity": "erwhy2333r23rd2r32er23",
-                        "photo": "https://<url to photo>"
-                    }
-                ],
-                "provider_two": [
-                    {
-                        "enabled": true,
-                        "link": "https://<provider's resume page>",
-                        "name": "Lorem Ipsum",
-                        "published": "Sat, 10 Mar 2018 12:59:06 GMT",
-                        "title": "Jeweler",
-                        "identity": "23rd2r32er23erwhy2333r"
-                        "photo": "https://<url to photo>"
-                    }
-                ]
-            }
+            [
+                {
+                    "provider": "provider_one"
+                    "resume": [
+                        {
+                            "enabled": false,
+                            "link": "https://<provider's resume page>",
+                            "name": "John Doe",
+                            "published": "Fri, 05 Oct 2018 20:18:11 GMT",
+                            "title": "Proctologist",
+                            "identity": "erwhy2333r23rd2r32er23",
+                            "photo": "https://<url to photo>"
+                        }
+                    ]
+                },
+                {
+                    "provider": "provider_two"
+                    "resume": [
+                        {
+                            "enabled": true,
+                            "link": "https://<provider's resume page>",
+                            "name": "Lorem Ipsum",
+                            "published": "Sat, 10 Mar 2018 12:59:06 GMT",
+                            "title": "Jeweler",
+                            "identity": "23rd2r32er23erwhy2333r"
+                            "photo": "https://<url to photo>"
+                        }
+                    ]
+                }
+            ]
 
     :reqheader Authorization: действующий JWT-токен
 
