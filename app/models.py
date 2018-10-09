@@ -62,7 +62,8 @@ class Resume(db.Model):
         return self.enabled
 
     def __str__(self):
-        return f'{self.identity}, enabled={self.enabled}, user={self.owner}'
+        return f'{self.identity}, enabled={self.enabled},\
+            provider={self.account.provider}, user={self.owner}'
 
 
 class Confirmation(db.Model):
@@ -121,8 +122,8 @@ class Subscription(db.Model):
         return self.confirmed
 
     def __str__(self):
-        return '{0}, channel={1}, enabled={2}, user={3}'.format(
-            self.address, self.channel, self.enabled, self.owner)
+        return f'{self.address}, channel={self.channel},\
+            enabled={self.enabled}, user={self.owner}'
 
 
 class Notification(db.Model):
@@ -163,5 +164,5 @@ class Notification(db.Model):
         return self.sended
 
     def __str__(self):
-        return '{0}, channel={1}, expires={2}, user={3}'.format(
-            self.message, self.channel, self.expires, self.owner)
+        return f'{self.message}, channel={self.channel},\
+            expires={self.expires}, user={self.owner}'
