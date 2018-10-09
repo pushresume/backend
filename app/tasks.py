@@ -202,7 +202,8 @@ def refresh_accounts():
             result['success'] += 1
             logger.info(f'Reauth success: {account}')
             Notification.create(
-                user=account.owner, msg='Token refresh success',
+                user=account.owner,
+                msg=f'Токен для {account.provider} успешно обновлён',
                 ttl=current_app.config['NOTIFICATIONS_TTL'])
         finally:
             result['total'] += 1
