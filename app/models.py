@@ -57,6 +57,11 @@ class Resume(db.Model):
     owner = db.relationship('User', backref='resume')
     account = db.relationship('Account', backref='resume', uselist=False)
 
+    def toggle(self):
+        self.enabled = not self.enabled
+        db.session.add(self)
+        db.session.commit()
+
     @property
     def is_enabled(self):
         return self.enabled

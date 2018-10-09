@@ -160,9 +160,7 @@ def resume_toggle():
     if not resume:
         return abort(404, 'Resume not found')
 
-    resume.enabled = not resume.enabled
-    db.session.add(resume)
-    db.session.commit()
+    resume.toggle()
 
     current_app.logger.info(f'Resume toggled: {resume}')
     return jsonify(enabled=resume.enabled)
