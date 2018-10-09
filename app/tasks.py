@@ -229,7 +229,8 @@ def push_resume():
             result['success'] += 1
             logger.info(f'Push success: {resume}')
             Notification.create(
-                user=resume.owner, msg=f'Resume "{resume.name}" push success',
+                user=resume.owner,
+                msg=f'Резюме "{resume.name}" успешно обновлено',
                 ttl=current_app.config['NOTIFICATIONS_TTL'])
         finally:
             result['total'] += 1
