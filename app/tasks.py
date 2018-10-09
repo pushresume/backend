@@ -232,6 +232,8 @@ def push_resume():
         except PushError as e:
             result['failed'] += 1
             logger.warning(f'Push failed: {resume}, status={e}')
+            if str(e).startswith(('400', '403')):
+                resume.toggle()
         except Exception as e:
             result['failed'] += 1
             logger.exception(f'Push failed: {resume}, err={e}', exc_info=1)
