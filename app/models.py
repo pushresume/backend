@@ -99,7 +99,9 @@ class Confirmation(db.Model):
         return (self.expires - datetime.utcnow()).seconds
 
     def __str__(self):
-        return f'{self.code}, expires={self.expires}, user={self.owner}'
+        return (
+            f'{self.code}, channel={self.channel}, '
+            f'expires={self.expires}, user={self.owner}')
 
 
 class Subscription(db.Model):
