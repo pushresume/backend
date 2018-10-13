@@ -1,4 +1,3 @@
-
 from datetime import datetime, timedelta
 
 from flask import Blueprint, current_app, request, jsonify, abort
@@ -227,7 +226,7 @@ def subscriptions_toggle():
     return jsonify(enabled=sub.enabled)
 
 
-@module.route(f'/{current_app.tgsecret}', methods=['POST'])
+@module.route(f'/{current_app.config["TELEGRAM_WEBHOOK"]}', methods=['POST'])
 def webhook():
     try:
         post_data = request.get_json()
@@ -242,7 +241,7 @@ def webhook():
 @current_app.bot.message_handler(commands=['start'])
 def command_start(msg):
     current_app.bot.send_message(
-        msg.chat.id, 'Please, enter the confirmation code')
+        msg.chat.id, 'Пожалуйста, введите код подтверждения')
 
 
 @current_app.bot.message_handler(regexp='^[0-9]{8}$')
@@ -253,14 +252,14 @@ def validate_confirmation(msg):
     if not confirmation:
         current_app.logger.info(f'Confirmation code not found: {code}')
         current_app.bot.send_message(
-            msg.chat.id, 'Confirmation code not found')
+            msg.chat.id, 'Неверный код подтверждения')
         return
 
     if confirmation.is_expired:
         current_app.logger.info(
             f'Confirmation code is expired: {confirmation}')
         current_app.bot.send_message(
-            msg.chat.id, 'Confirmation code is expired')
+            msg.chat.id, 'Срок действия кода истёк')
         return
 
     sub = Subscription.query.filter_by(
@@ -269,7 +268,7 @@ def validate_confirmation(msg):
     if sub:
         current_app.logger.warning(f'Subscription already exists: {sub}')
         current_app.bot.send_message(
-            msg.chat.id, 'Subscription already exists')
+            msg.chat.id, 'Подписка уже существует')
         return
 
     sub = Subscription(
@@ -281,12 +280,12 @@ def validate_confirmation(msg):
 
     current_app.logger.info(f'Subscription created: {sub}')
     current_app.bot.send_message(
-        msg.chat.id, 'Success. You may enable notifications on site')
+        msg.chat.id, 'Отлично! Теперь вы можете включить уведомления на сайте')
     return
 
 
 @current_app.bot.message_handler(func=lambda msg: True)
 def invalid_message(msg):
-    return_text = 'Invalid message'
+    return_text = 'Извините, но я не понимаю, чего вы от меня хотите'
     current_app.logger.debug(f'{return_text}: {msg.text}')
     current_app.bot.send_message(msg.chat.id, return_text)

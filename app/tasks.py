@@ -1,13 +1,11 @@
 from time import sleep
 from datetime import datetime, timedelta
 
-import sentry_sdk
-import scout_apm.celery
-from scout_apm.api import Config
+from celery import Celery
 from celery.utils.log import get_task_logger
-from sentry_sdk.integrations.celery import CeleryIntegration
 
 from . import create_app, db
+from .utils import load_sentry, load_scout_apm
 from .providers import PushError, TokenError
 from .models import (
     User, Account, Resume, Confirmation, Subscription, Notification)
@@ -16,26 +14,25 @@ from .models import (
 current_app = create_app()  # not app!
 current_app.app_context().push()
 
-celery = current_app.queue
+celery = Celery(
+    'pushresume',
+    broker=current_app.config['REDIS_URL'],
+    broker_pool_limit=0,  # current_app.config['REDIS_MAX_CONNECTIONS'],
+    redis_max_connections=current_app.config['REDIS_MAX_CONNECTIONS'])
 logger = get_task_logger(__name__)
+
+if current_app.config['SENTRY_DSN']:
+    load_sentry(current_app, celery=True)
+
+if current_app.config['SCOUT_KEY']:
+    load_scout_apm(current_app, db, celery=True)
+
 default_result = {'total': 0, 'success': 0, 'failed': 0}
-
-sentry_sdk.init(
-    dsn=current_app.config['SENTRY_DSN'],
-    environment='development' if current_app.debug else 'production',
-    integrations=[CeleryIntegration()])
-
-Config.set(
-    key=current_app.config['SCOUT_KEY'],
-    monitor=current_app.config['SCOUT_MONITOR'],
-    name=current_app.config['SCOUT_NAME'])
-
-scout_apm.celery.install()
 
 
 @celery.on_after_configure.connect
 def setup_periodic_tasks(sender, **kwargs):
-    cleanup_period = current_app.config['CLEANUP_PERIOD']
+    cleanup_period = current_app.config['PERIOD_CLEANUP']
     sender.add_periodic_task(cleanup_period, cleanup_users.s())
     sender.add_periodic_task(cleanup_period, cleanup_resume.s())
     sender.add_periodic_task(cleanup_period, cleanup_accounts.s())
@@ -43,11 +40,11 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(cleanup_period, cleanup_subscriptions.s())
     sender.add_periodic_task(cleanup_period, cleanup_notifications.s())
     sender.add_periodic_task(
-        current_app.config['REAUTH_PERIOD'], refresh_accounts.s())
+        current_app.config['PERIOD_REAUTH'], refresh_accounts.s())
     sender.add_periodic_task(
-        current_app.config['PUSH_PERIOD'], push_resume.s())
+        current_app.config['PERIOD_PUSH'], push_resume.s())
     sender.add_periodic_task(
-        current_app.config['NOTIFICATIONS_PERIOD'], notify_by_telegram.s())
+        current_app.config['PERIOD_NOTIFICATIONS'], notify_by_telegram.s())
 
 
 @celery.task
@@ -242,7 +239,7 @@ def push_resume():
             logger.info(f'Push success: {resume}')
             Notification.create(
                 user=resume.owner,
-                msg=f'Резюме "{resume.name}" успешно обновлено',
+                msg=f'Резюме «{resume.name}» успешно обновлено',
                 ttl=current_app.config['NOTIFICATIONS_TTL'])
         finally:
             result['total'] += 1
@@ -253,6 +250,7 @@ def push_resume():
 @celery.task
 def notify_by_telegram():
     result = default_result.copy()
+    result['expired'] = 0
     channel = 'telegram'
 
     users = User.query.all()
@@ -264,6 +262,7 @@ def notify_by_telegram():
             for notice in notices:
                 if notice.is_expired:
                     logger.warning(f'Notification expired: {notice}')
+                    result['expired'] += 1
                     continue
                 try:
                     current_app.bot.send_message(sub.address, notice.message)
