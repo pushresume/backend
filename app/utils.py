@@ -60,32 +60,31 @@ def jwt_err_handler(msg):
     return jsonify(message), 401
 
 
-def load_providers(app):
-    app.providers = {}
-    for prov in app.config['PROVIDERS']:
-        back_url = f'{app.config["FRONTEND_URL"]}/auth/{prov}'
+def load_provider(app, provider):
+    if not getattr(app, 'providers', False):
+        app.providers = {}
+
+    if isinstance(app.providers, dict):
+        back_url = f'{app.config["FRONTEND_URL"]}/auth/{provider}'
         try:
-            mod = import_module(f'app.providers.{prov}')
-            app.providers[prov] = mod.Provider(
-                name=prov, redirect_uri=back_url, **app.config[prov.upper()])
+            mod = import_module(f'app.providers.{provider}')
+            app.providers[provider] = mod.Provider(
+                name=provider,
+                redirect_uri=back_url, **app.config[provider.upper()])
         except Exception as e:
-            app.logger.error(f'Provider [{prov}] load failed: {e}', exc_info=1)
-            continue
+            app.logger.exception(f'Provider [{provider}] load failed: {e}')
         else:
-            app.logger.info(f'Provider [{prov}] loaded')
+            app.logger.info(f'Provider [{provider}] loaded')
 
 
-def load_controllers(app):
-    for controller in app.config['CONTROLLERS']:
-        try:
-            mod = import_module(f'app.controllers.{controller}')
-            app.register_blueprint(mod.module)
-        except Exception as e:
-            app.logger.error(
-                f'Controller [{controller}] load failed: {e}', exc_info=1)
-            continue
-        else:
-            app.logger.info(f'Controller [{controller}] loaded')
+def load_controller(app, controller):
+    try:
+        mod = import_module(f'app.controllers.{controller}')
+        app.register_blueprint(mod.module)
+    except Exception as e:
+        app.logger.exception(f'Controller [{controller}] load failed: {e}')
+    else:
+        app.logger.info(f'Controller [{controller}] loaded')
 
 
 def _get_logger(app, celery=False):

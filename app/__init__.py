@@ -12,7 +12,7 @@ from werkzeug.contrib.fixers import ProxyFix
 
 from .utils import (
     register_telegram_webhook, json_in_body, error_handler, jwt_err_handler,
-    load_providers, load_controllers, load_sentry, load_scout_apm)
+    load_provider, load_controller, load_sentry, load_scout_apm)
 
 
 __version__ = '0.2.0'
@@ -55,10 +55,12 @@ def create_app(config=None):
     app.before_request(json_in_body)
     app.register_error_handler(Exception, error_handler)
 
-    load_providers(app)
+    for provider in app.config['PROVIDERS']:
+        load_provider(app, provider)
 
     with app.app_context():
-        load_controllers(app)
+        for controller in app.config['CONTROLLERS']:
+            load_controller(app, controller)
 
     if app.config['SENTRY_DSN']:
         load_sentry(app)
