@@ -5,4 +5,4 @@ schedule: every day
 search: True
 branch_prefix: pyup-
 close_prs: True
-label_prs: update requirements
+label_prs: update
