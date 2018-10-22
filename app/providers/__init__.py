@@ -24,7 +24,7 @@ class TokenError(ProviderError):
 class BaseProvider(object):
     """Base Provider"""
 
-    _headers = {'User-Agent': 'OpenResume'}
+    _headers = {'User-Agent': 'PushResume'}
 
     def __init__(self, name, redirect_uri, **kwargs):
         self.name = name
