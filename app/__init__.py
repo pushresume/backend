@@ -15,7 +15,7 @@ from .utils import (
     load_provider, load_controller, load_sentry, load_scout_apm)
 
 
-__version__ = '0.2.0'
+__version__ = '0.2.1'
 
 db = SQLAlchemy()
 cache = Cache()
