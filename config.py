@@ -38,7 +38,7 @@ JWT_HEADER_TYPE = 'JWT'
 JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', os.urandom(64))
 JWT_ACCESS_TOKEN_EXPIRES = os.getenv('JWT_ACCESS_TOKEN_EXPIRES', 600)  # sec
 
-SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'sqlite:///')
+SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'sqlite://')
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 REDIS_URL = os.getenv('REDIS_URL', 'redis://')
