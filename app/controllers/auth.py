@@ -8,7 +8,6 @@ from .. import db
 from ..models import User, Account
 from ..providers import ProviderError
 from ..utils import validation_required
-from ..schema import login_schema
 
 
 module = Blueprint('auth', __name__, url_prefix='/auth')
@@ -83,7 +82,7 @@ def redirect(provider_name):
 
 @module.route('/<provider_name>', methods=['POST'])
 @jwt_optional
-@validation_required(login_schema)
+@validation_required({'code': {'type': 'string', 'required': True}})
 def login(provider_name):
     """
     Логин пользователя.

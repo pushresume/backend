@@ -7,7 +7,6 @@ from telebot import types
 from .. import db
 from ..models import User, Confirmation, Subscription
 from ..utils import validation_required, generate_confirm_code
-from ..schema import subscription_schema
 
 
 module = Blueprint('notifications', __name__, url_prefix='/notifications')
@@ -167,7 +166,13 @@ def subscriptions():
 
 @module.route('/subscriptions', methods=['POST'])
 @jwt_required
-@validation_required(subscription_schema)
+@validation_required({
+    'channel': {
+        'type': 'string',
+        'required': True,
+        'allowed': current_app.config['NOTIFICATIONS_CHANNELS']
+    }
+})
 def subscriptions_toggle():
     """
     Включение/выключение уведомления через выбранный канал

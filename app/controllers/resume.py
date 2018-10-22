@@ -5,7 +5,6 @@ from .. import db
 from ..models import User, Resume
 from ..providers import ProviderError
 from ..utils import validation_required
-from ..schema import resume_schema
 
 
 module = Blueprint('resume', __name__)
@@ -112,7 +111,7 @@ def resume():
 
 @module.route('/resume', methods=['POST'])
 @jwt_required
-@validation_required(resume_schema)
+@validation_required({'identity': {'type': 'string', 'required': True}})
 def resume_toggle():
     """
     Включение/выключение автоматического обновления резюме
