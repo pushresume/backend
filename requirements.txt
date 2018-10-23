@@ -3,6 +3,7 @@ flask_cors == 3.0.6
 flask_caching == 1.4.0
 flask_sqlalchemy == 2.3.2
 flask_jwt_extended == 3.12.1
+flask-migrate == 2.3.0
 psycopg2 == 2.7.5
 python-dotenv == 0.9.1
 cerberus == 1.2
