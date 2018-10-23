@@ -55,17 +55,24 @@ def resume():
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
 
-        provider = current_app.providers[user.provider]
-        resumes = provider.fetch(user.access)
+        for account in user.accounts:
+            provider = current_app.providers[account.provider]
+            resumes = provider.fetch(account.access)
 
-        for i in resumes:
-            resume = Resume.query.filter_by(uniq=i['uniq'], owner=user).first()
-            if not resume:
-                resume = Resume(uniq=i['uniq'], enabled=False, owner=user)
-                current_app.logger.info(f'Resume created: {resume}')
+            for item in resumes:
+                resume = Resume.query.filter_by(identity=item['uniq']).first()
+
+                if not resume:
+                    resume = Resume(
+                        identity=item['uniq'], enabled=False,
+                        name=item['title'], owner=user, account=account)
+                    current_app.logger.info(f'Resume created: {resume}')
+
+                resume.name = item['title']
+                resume.owner = user
                 db.session.add(resume)
 
-            i['enabled'] = resume.enabled
+                item['enabled'] = resume.enabled
 
         db.session.commit()
 
@@ -123,15 +130,12 @@ def resume_toggle():
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
         uniq = request.get_json()['uniq']
-        resume = Resume.query.filter_by(uniq=uniq, owner=user).first()
+        resume = Resume.query.filter_by(identity=uniq, owner=user).first()
 
         if not resume:
             return abort(404, 'Resume not found')
 
-        resume.enabled = not resume.enabled
-
-        db.session.add(resume)
-        db.session.commit()
+        resume.toggle()
 
     except SQLAlchemyError as e:
         current_app.logger.error(f'{type(e).__name__}: {e}', exc_info=1)

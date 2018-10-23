@@ -3,7 +3,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from redis import RedisError
 
 from .. import cache, __version__
-from ..models import User, Resume
+from ..models import User, Resume, Account
 
 
 module = Blueprint('status', __name__)
@@ -20,23 +20,24 @@ def main():
     try:
         users = User.query.count()
         resume = Resume.query.count()
+        accounts = Account.query.count()
         redis = current_app.redis.info('memory')
 
         result = {
             'providers': [],
             'health': {
-                'db': {'current': users + resume, 'max': 10000},
+                'db': {'current': users + resume + accounts, 'max': 10000},
                 'cache': {'current': redis['used_memory'], 'max': 25000000}
             },
             'version': __version__
         }
 
-        ResumeUser = Resume.query.join(User)
+        joined = Resume.query.join(Account)
         for prov in current_app.providers.keys():
             provider = {
                 'name': prov,
-                'users': User.query.filter_by(provider=prov).count(),
-                'resume': ResumeUser.filter(User.provider == prov).count()
+                'users': Account.query.filter_by(provider=prov).count(),
+                'resume': joined.filter(Account.provider == prov).count()
             }
             result['providers'].append(provider)
 

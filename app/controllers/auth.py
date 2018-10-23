@@ -5,7 +5,7 @@ from flask_jwt_extended import (
     create_access_token, jwt_required, jwt_optional, get_jwt_identity)
 
 from .. import db
-from ..models import User
+from ..models import User, Account
 from ..providers import ProviderError
 from ..utils import validation_required
 
@@ -131,16 +131,35 @@ def login(provider_name):
         ids = provider.tokenize(code, refresh=False)
         identity = provider.identity(ids['access_token'])
 
-        user = User.query.filter_by(
-            uniq=identity, provider=provider.name).first()
-        if not user:
-            user = User(uniq=identity, provider=provider.name)
+        account = Account.query.filter_by(
+            identity=identity, provider=provider_name.lower()).first()
 
-        user.access = ids['access_token']
-        user.refresh = ids['refresh_token']
-        user.expires = datetime.utcnow() + timedelta(seconds=ids['expires_in'])
+        user_id = get_jwt_identity()
+        if user_id:
+            user = User.query.get(user_id)
+        else:
+            user = None
+
+        if account and user:
+            account.owner = user
+
+        elif account and not user:
+            user = account.owner
+
+        elif not account:
+            if not user:
+                user = User()
+            account = Account(identity=identity, owner=user)
+
+        account.provider = provider.name
+        account.access = ids['access_token']
+        account.refresh = ids['refresh_token']
+
+        delta = timedelta(seconds=ids['expires_in'])
+        account.expires = datetime.utcnow() + delta
 
         db.session.add(user)
+        db.session.add(account)
         db.session.commit()
 
     except ProviderError as e:
