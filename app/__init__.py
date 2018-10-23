@@ -7,16 +7,18 @@ from celery import Celery
 from flask import Flask, jsonify, abort
 from flask_cors import CORS
 from flask_caching import Cache
+from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from werkzeug.contrib.fixers import ProxyFix
 from werkzeug.exceptions import HTTPException
 
 
-__version__ = '0.1.1'
+__version__ = '0.1.2'
 
 db = SQLAlchemy()
 cache = Cache()
+migrate = Migrate()
 
 
 def create_app():
@@ -33,6 +35,7 @@ def create_app():
 
     db.init_app(app)
     cache.init_app(app)
+    migrate.init_app(app, db)
     CORS(app, resources={r'/*': {'origins': app.config['FRONTEND_URL']}})
     JWTManager(app)
 
