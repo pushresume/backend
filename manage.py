@@ -1,38 +1,12 @@
 import click
+from flask.cli import FlaskGroup
+
+from app import create_app
 
 
-@click.group()
+@click.group(cls=FlaskGroup, create_app=create_app)
 def cli():
     pass
-
-
-@cli.command()
-@click.option('-h', '--host', default='127.0.0.1', help='listen address')
-@click.option('-p', '--port', type=int, default=8000, help='listen port')
-def run(host, port):
-    """Run development server"""
-    from logging import basicConfig
-    from app import create_app
-    basicConfig(level='DEBUG')
-    create_app().run(host=host, port=port)
-
-
-@cli.command()
-def create():
-    """Create database tables"""
-    from app import create_app, db
-    app = create_app()
-    with app.app_context():
-        db.create_all()
-
-
-@cli.command()
-def drop():
-    """Purge database schema - WARNING!"""
-    from app import create_app, db
-    app = create_app()
-    with app.app_context():
-        db.drop_all()
 
 
 @cli.command()
