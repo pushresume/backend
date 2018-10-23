@@ -1,17 +1,19 @@
 from logging import getLogger
 from datetime import timedelta
-from importlib import import_module
 
 from redis import Redis
 from celery import Celery
-from flask import Flask, jsonify, abort
+from flask import Flask
 from flask_cors import CORS
 from flask_caching import Cache
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from werkzeug.contrib.fixers import ProxyFix
-from werkzeug.exceptions import HTTPException
+
+from .utils import (
+    json_in_body, error_handler, jwt_err_handler,
+    load_provider, load_controller)
 
 
 __version__ = '0.1.2'
@@ -19,6 +21,7 @@ __version__ = '0.1.2'
 db = SQLAlchemy()
 cache = Cache()
 migrate = Migrate()
+jwt = JWTManager()
 
 
 def create_app():
@@ -37,7 +40,13 @@ def create_app():
     cache.init_app(app)
     migrate.init_app(app, db)
     CORS(app, resources={r'/*': {'origins': app.config['FRONTEND_URL']}})
-    JWTManager(app)
+
+    jwt.init_app(app)
+    jwt.invalid_token_loader(lambda m: jwt_err_handler(f'Invalid token: {m}'))
+    jwt.revoked_token_loader(lambda: jwt_err_handler('Token has been revoked'))
+    jwt.expired_token_loader(lambda: jwt_err_handler('Token has expired'))
+    jwt.user_loader_error_loader(lambda m: jwt_err_handler(m))
+    jwt.unauthorized_loader(lambda m: jwt_err_handler(m))
 
     app.wsgi_app = ProxyFix(app.wsgi_app)
     app.redis = Redis.from_url(app.config['REDIS_URL'])
@@ -46,32 +55,20 @@ def create_app():
         backend=app.config['REDIS_URL'],
         broker=app.config['REDIS_URL'])
 
-    @app.errorhandler(Exception)
-    def error_handler(e):
-        if not isinstance(e, HTTPException):
-            if app.debug:
-                raise e
-            app.logger.critical(e, exc_info=1)
-            return abort(500, type(e).__name__)
+    app.before_request(json_in_body)
+    app.register_error_handler(Exception, error_handler)
 
-        msg = {'status': e.code, 'message': e.description, 'error': e.name}
-        if e.code == 405:
-            msg.update({'allowed': e.valid_methods})
-        return jsonify(msg), e.code
+    for provider in app.config['PROVIDERS']:
+        load_provider(app, provider)
 
-    app.providers = {}
-    for prov in app.config['PROVIDERS']:
-        try:
-            mod = import_module(f'app.providers.{prov}')
-            back_url = f'{app.config["FRONTEND_URL"]}/auth/{prov}'
-            app.providers[prov] = mod.Provider(
-                name=prov, redirect_uri=back_url, **app.config[prov.upper()])
-            app.logger.info(f'Provider [{prov}] loaded')
-        except Exception as e:
-            app.logger.warn(f'Provider [{prov}] load failed: {e}', exc_info=1)
+    with app.app_context():
+        for controller in app.config['CONTROLLERS']:
+            load_controller(app, controller)
 
-    from .views import module
-    app.register_blueprint(module)
+    try:
+        cache.clear()
+    except Exception as e:
+        app.logger.warning(f'Cache clean error: {e}')
 
     app.logger.info(f'PushResume {__version__} startup')
 
