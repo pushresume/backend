@@ -14,7 +14,7 @@ from werkzeug.contrib.fixers import ProxyFix
 from werkzeug.exceptions import HTTPException
 
 
-__version__ = '0.1.1'
+__version__ = '0.1.2'
 
 db = SQLAlchemy()
 cache = Cache()
