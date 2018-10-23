@@ -10,6 +10,7 @@ DEBUG = True if os.getenv('DEBUG') == 'True' else False
 
 FRONTEND_URL = os.getenv('FRONTEND_URL')
 
+CONTROLLERS = ['auth', 'resume', 'status']
 PROVIDERS = ['headhunter', 'superjob']
 
 CLEANUP_PERIOD = 60*60*24  # sec

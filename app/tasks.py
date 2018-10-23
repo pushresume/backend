@@ -1,8 +1,9 @@
+from datetime import datetime, timedelta
+
 from celery.utils.log import get_task_logger
 
 from . import create_app, db
 from .models import User, Resume
-from .controllers import UserController
 from .providers import PushError, TokenError
 
 
@@ -48,8 +49,16 @@ def reauth():
     for user in users:
         try:
             provider = current_app.providers[user.provider]
-            user_controller = UserController(provider)
-            user = user_controller.auth(code=user.refresh, refresh=True)
+            ids = provider.tokenize(user.refresh, refresh=True)
+
+            user.access = ids['access_token']
+            user.refresh = ids['refresh_token']
+
+            delta = timedelta(seconds=ids['expires_in'])
+            user.expires = datetime.utcnow() + delta
+
+            db.session.add(user)
+            db.session.commit()
         except TokenError as e:
             result['failed'] += 1
             logger.warning(f'Reauth failed: {user}, status={e}')
