@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from celery.utils.log import get_task_logger
 
 from . import create_app, db
-from .models import User, Resume
+from .models import Account, Resume
 from .providers import PushError, TokenError
 
 
@@ -45,29 +45,29 @@ def cleanup():
 @celery.task
 def reauth():
     result = default_result.copy()
-    users = User.query.all()
-    for user in users:
+    accounts = Account.query.all()
+    for account in accounts:
         try:
-            provider = current_app.providers[user.provider]
-            ids = provider.tokenize(user.refresh, refresh=True)
+            provider = current_app.providers[account.provider]
+            ids = provider.tokenize(account.refresh, refresh=True)
 
-            user.access = ids['access_token']
-            user.refresh = ids['refresh_token']
+            account.access = ids['access_token']
+            account.refresh = ids['refresh_token']
 
             delta = timedelta(seconds=ids['expires_in'])
-            user.expires = datetime.utcnow() + delta
+            account.expires = datetime.utcnow() + delta
 
-            db.session.add(user)
+            db.session.add(account)
             db.session.commit()
         except TokenError as e:
             result['failed'] += 1
-            logger.warning(f'Reauth failed: {user}, status={e}')
+            logger.warning(f'Reauth failed: {account}, status={e}')
         except Exception as e:
             result['failed'] += 1
-            logger.exception(f'Reauth failed: {user}, err={e}', exc_info=1)
+            logger.exception(f'Reauth failed: {account}, err={e}', exc_info=1)
         else:
             result['success'] += 1
-            logger.info(f'Reauth success: {user}')
+            logger.info(f'Reauth success: {account}')
         finally:
             result['total'] += 1
 
@@ -80,11 +80,14 @@ def push():
     resumes = Resume.query.filter_by(enabled=True).all()
     for resume in resumes:
         try:
-            provider = current_app.providers[resume.owner.provider]
-            provider.push(token=resume.owner.access, resume=resume.uniq)
+            account = resume.account
+            provider = current_app.providers[account.provider]
+            provider.push(token=account.access, resume=resume.identity)
         except PushError as e:
             result['failed'] += 1
             logger.warning(f'Push failed: {resume}, status={e}')
+            if str(e).startswith(('400', '403')):
+                resume.toggle()
         except Exception as e:
             result['failed'] += 1
             logger.exception(f'Push failed: {resume}, err={e}', exc_info=1)
