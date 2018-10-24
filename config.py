@@ -31,6 +31,12 @@ CACHE_KEY_PREFIX = 'cache'
 CACHE_DEFAULT_TIMEOUT = 300
 CACHE_REDIS_URL = os.getenv('REDIS_URL', 'redis://')
 
+SENTRY_DSN = os.getenv('SENTRY_DSN', None)
+
+SCOUT_KEY = os.getenv('SCOUT_KEY', None)
+SCOUT_NAME = 'pushresume-dev' if DEBUG else 'pushresume'
+SCOUT_MONITOR = True
+
 # PROVIDERS SETTINGS
 
 HEADHUNTER = {

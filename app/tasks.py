@@ -5,6 +5,7 @@ from celery.utils.log import get_task_logger
 from . import create_app, db
 from .models import User, Resume
 from .providers import PushError, TokenError
+from .utils import load_sentry, load_scout_apm
 
 
 current_app = create_app()  # not app!
@@ -12,6 +13,13 @@ current_app.app_context().push()
 
 celery = current_app.queue
 logger = get_task_logger(__name__)
+
+if current_app.config['SENTRY_DSN']:
+    load_sentry(current_app, celery=True)
+
+if current_app.config['SCOUT_KEY']:
+    load_scout_apm(current_app, db, celery=True)
+
 default_result = {'total': 0, 'success': 0, 'failed': 0}
 
 

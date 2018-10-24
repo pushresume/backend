@@ -13,7 +13,7 @@ from werkzeug.contrib.fixers import ProxyFix
 
 from .utils import (
     json_in_body, error_handler, jwt_err_handler,
-    load_provider, load_controller)
+    load_provider, load_controller, load_sentry, load_scout_apm)
 
 
 __version__ = '0.1.3'
@@ -64,6 +64,12 @@ def create_app():
     with app.app_context():
         for controller in app.config['CONTROLLERS']:
             load_controller(app, controller)
+
+    if app.config['SENTRY_DSN']:
+        load_sentry(app)
+
+    if app.config['SCOUT_KEY']:
+        load_scout_apm(app, db)
 
     try:
         cache.clear()
