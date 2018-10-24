@@ -51,6 +51,7 @@ def resume():
     :statuscode 500: unexpected errors
     :statuscode 503: provider errors
     """
+    result = {}
     try:
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
@@ -74,6 +75,11 @@ def resume():
 
                 item['enabled'] = resume.enabled
 
+            if resumes:
+                if provider.name not in result:
+                    result[provider.name] = []
+                result[provider.name].extend(resumes)
+
         db.session.commit()
 
     except ProviderError as e:
@@ -85,7 +91,8 @@ def resume():
         return abort(500, 'Database error')
 
     else:
-        return jsonify(resumes)
+        struct = [dict(provider=k, resume=v) for k, v in result.items()]
+        return jsonify(struct)
 
 
 @module.route('/resume', methods=['POST'])
