@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 
+from celery import Celery
 from celery.utils.log import get_task_logger
 
 from . import create_app, db
@@ -11,7 +12,10 @@ from .utils import load_sentry, load_scout_apm
 current_app = create_app()  # not app!
 current_app.app_context().push()
 
-celery = current_app.queue
+celery = Celery(
+    'pushresume',
+    backend=current_app.config['REDIS_URL'],
+    broker=current_app.config['REDIS_URL'])
 logger = get_task_logger(__name__)
 
 if current_app.config['SENTRY_DSN']:

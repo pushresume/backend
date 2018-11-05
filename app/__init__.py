@@ -2,7 +2,6 @@ from logging import getLogger
 from datetime import timedelta
 
 from redis import Redis
-from celery import Celery
 from flask import Flask
 from flask_cors import CORS
 from flask_caching import Cache
@@ -50,10 +49,6 @@ def create_app():
 
     app.wsgi_app = ProxyFix(app.wsgi_app)
     app.redis = Redis.from_url(app.config['REDIS_URL'])
-    app.queue = Celery(
-        'pushresume',
-        backend=app.config['REDIS_URL'],
-        broker=app.config['REDIS_URL'])
 
     app.before_request(json_in_body)
     app.register_error_handler(Exception, error_handler)
