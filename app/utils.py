@@ -25,7 +25,7 @@ def json_in_body():
         return abort(400, 'Invalid JSON')
 
 
-def error_handler(e):
+def jsonify_error(e):
     if not isinstance(e, HTTPException):
         current_app.logger.critical(e, exc_info=1)
         return abort(500, 'Unexpected error')
@@ -36,9 +36,16 @@ def error_handler(e):
     return jsonify(msg), e.code
 
 
-def jwt_err_handler(msg):
-    message = {'status': 401, 'error': 'Unauthorized', 'message': msg}
-    return jsonify(message), 401
+def jsonify_jwt_error(jwt):
+    def handler(msg):
+        message = {'status': 401, 'error': 'Unauthorized', 'message': msg}
+        return jsonify(message), 401
+
+    jwt.invalid_token_loader(lambda m: handler(f'Invalid token'))
+    jwt.revoked_token_loader(lambda: handler('Token has been revoked'))
+    jwt.expired_token_loader(lambda: handler('Token has expired'))
+    jwt.user_loader_error_loader(lambda m: handler('Unknown user'))
+    jwt.unauthorized_loader(lambda m: handler(m))
 
 
 def load_provider(app, provider):

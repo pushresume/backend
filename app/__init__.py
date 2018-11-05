@@ -11,7 +11,7 @@ from flask_jwt_extended import JWTManager
 from werkzeug.contrib.fixers import ProxyFix
 
 from .utils import (
-    json_in_body, error_handler, jwt_err_handler,
+    json_in_body, jsonify_error, jsonify_jwt_error,
     load_provider, load_controller, load_sentry, load_scout_apm)
 
 
@@ -41,17 +41,13 @@ def create_app():
     CORS(app, resources={r'/*': {'origins': app.config['FRONTEND_URL']}})
 
     jwt.init_app(app)
-    jwt.invalid_token_loader(lambda m: jwt_err_handler(f'Invalid token: {m}'))
-    jwt.revoked_token_loader(lambda: jwt_err_handler('Token has been revoked'))
-    jwt.expired_token_loader(lambda: jwt_err_handler('Token has expired'))
-    jwt.user_loader_error_loader(lambda m: jwt_err_handler(m))
-    jwt.unauthorized_loader(lambda m: jwt_err_handler(m))
+    jsonify_jwt_error(jwt)
 
     app.wsgi_app = ProxyFix(app.wsgi_app)
     app.redis = Redis.from_url(app.config['REDIS_URL'])
 
     app.before_request(json_in_body)
-    app.register_error_handler(Exception, error_handler)
+    app.register_error_handler(Exception, jsonify_error)
 
     for provider in app.config['PROVIDERS']:
         load_provider(app, provider)
