@@ -24,7 +24,7 @@ class TokenError(ProviderError):
 class BaseProvider(object):
     """Base Provider"""
 
-    _headers = {'User-Agent': 'OpenResume'}
+    _headers = {'User-Agent': 'PushResume'}
 
     def __init__(self, name, redirect_uri, **kwargs):
         self.name = name
@@ -32,19 +32,19 @@ class BaseProvider(object):
         self._prov = OAuth2Service(name=name, **kwargs)
 
     def redirect(self, back_url=None):
-        raise NotImplemented
+        raise NotImplementedError
 
     def identity(self, token):
-        raise NotImplemented
+        raise NotImplementedError
 
     def fetch(self, token):
-        raise NotImplemented
+        raise NotImplementedError
 
     def push(self, token, resume):
-        raise NotImplemented
+        raise NotImplementedError
 
     def tokenize(self, code, refresh=False):
-        raise NotImplemented
+        raise NotImplementedError
 
     def __str__(self):
         return f'{self.name}'
