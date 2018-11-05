@@ -9,7 +9,19 @@ def cli():
     pass
 
 
-@cli.command()
+@cli.command(with_appcontext=False)
+def worker():
+    """Start Celery worker"""
+    from celery.bin import worker
+    from app.tasks import celery
+    worker.worker(app=celery).run(**{
+        'beat': True,
+        'scheduler': 'redbeat.RedBeatScheduler',
+        'loglevel': 'INFO',
+    })
+
+
+@cli.command(with_appcontext=False)
 @click.option('-o', '--output', default='html', help='Output dir for docs')
 def doc(output):
     """Build documentation with Sphinx"""
@@ -17,7 +29,7 @@ def doc(output):
     build.main(['docs', output])
 
 
-@cli.command()
+@cli.command(with_appcontext=False)
 @click.option('-d', '--dir', default='tests', help='Directory with tests')
 def test(dir):
     """Discover and run unit tests"""
