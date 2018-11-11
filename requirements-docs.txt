@@ -1,5 +1,5 @@
 -r requirements.txt
 
-sphinx==1.8.1
+sphinx==1.8.2
 sphinx_rtd_theme==0.4.2
 sphinxcontrib_httpdomain==1.7.0
