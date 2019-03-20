@@ -9,7 +9,7 @@ python_dotenv==0.10.1
 cerberus==1.2
 rauth==0.7.3
 redis==2.10.6
-celery==4.2.1
+celery==4.2.2
 celery_redbeat==0.12.0
 gunicorn==19.9.0
 sentry_sdk[flask]==0.6.9
